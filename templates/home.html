@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-body p-4 p-md-5 text-center">
+        {% if user.is_authenticated %}
+          <h1 class="h2 mb-3">Welcome back, {{ user.username }}!</h1>
+          <p class="text-muted mb-4">Pick up where you left off.</p>
+          <a class="btn btn-primary btn-lg" href="{% url 'books:list' %}">My Reading List</a>
+        {% else %}
+          <h1 class="h2 mb-3">Your personal reading list</h1>
+          <p class="lead mb-2">Search millions of books from Open Library and save the ones you care about.</p>
+          <p class="text-muted mb-4">
+            Keep track of the books you <strong>want to read</strong>, are <strong>reading</strong> now,
+            and have <strong>finished</strong>, with your own ratings and notes.
+          </p>
+          <div class="d-flex flex-column flex-sm-row justify-content-center gap-2">
+            <a class="btn btn-primary btn-lg" href="{% url 'signup' %}">Sign Up</a>
+            <a class="btn btn-outline-secondary btn-lg" href="{% url 'login' %}">Log In</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

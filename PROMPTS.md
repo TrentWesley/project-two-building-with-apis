@@ -293,3 +293,64 @@ The network error was simulated with a temporary, unreachable `HTTPS_PROXY` sett
 
 ### Next Steps
 - Phase 1: project skeleton and accounts (install Django and DRF after verifying Python 3.14 support).
+
+---
+
+## Session 10: Phase 1, Project Skeleton and Accounts
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- `/implement` Phase 1 of `plans/django-reading-list.md`, following the approved plan exactly.
+- Approved each of the three `/tdd` behaviors at RED and GREEN, then asked to finish the remaining Phase 1 requirements and run all checks.
+
+### Work Completed
+- **Verified versions on PyPI (official package metadata):** Django 6.1.3 supports Python 3.12–3.15. DRF 3.18.3 supports Python 3.14 and Django 5.2/6.0/6.1. pytest-django 4.14.0 supports Python 3.14 but only lists Django up to 6.0, so it was confirmed to work with Django 6.1 by running the full test suite.
+- Installed `django`, `djangorestframework`, and `pytest-django` (dev) with uv. Created the `config` project and `books` app.
+- **Settings:** `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, and `DJANGO_ALLOWED_HOSTS` come from environment variables. Django's generated secret key was removed immediately, and the compiled cache that held it was deleted. SQLite database (`db.sqlite3`, gitignored). Login/logout redirect settings. Bootstrap colors for error messages.
+- **Pages:** a Bootstrap 5 base layout (dark navbar with a collapsible menu, message alerts, Open Library footer link), the Home page (intro and buttons for visitors, simple welcome for logged-in users), sign-up, login (with "next" support), `POST`-only logout, and a temporary login-required `/books/` placeholder.
+- Bootstrap-styled forms through a small mixin on Django's built-in `UserCreationForm` and `AuthenticationForm`, and a shared form-fields template.
+- pytest-django is configured in `pyproject.toml`, so `uv run pytest` runs the script 1 tests and the Django tests together.
+
+### TDD (3 behaviors)
+1. **Settings refuse to load with `DEBUG` off and no secret key.** RED: settings loaded (exit code 0). GREEN: an `if` raises `ImproperlyConfigured` when `DEBUG` is off and the key is still the fake development key. The test runs settings in a separate process, so it cannot affect the rest of the suite.
+2. **Sign-up creates the user, logs them in, and redirects to Home.** RED: 404 (no sign-up page). GREEN: a function view using `UserCreationForm` and Django's `login()`, plus a welcome message.
+3. **Logout requires `POST`, logs out, and redirects to Home.** RED: 404 (no logout URL). GREEN: Django's built-in `LogoutView` (which allows only `POST`), extended to add "You have been logged out."
+
+### Tests
+- 23 tests pass: 3 TDD tests, 15 more Phase 1 tests, and the 5 script 1 tests.
+- The other Phase 1 tests cover: dev mode still loads with the fake key, the welcome and logout messages, mismatched sign-up passwords, login with and without `next`, unsafe `next` being ignored, failed login errors, logged-in users redirected away from login and sign-up, Home for visitors and for logged-in users, and the `/books/` login redirect with `next`.
+- `ruff check`, `ruff format --check`, `manage.py check`, and `makemigrations --check` all pass.
+
+### Bugs and Fixes
+- **Weak test caught during review:** the "login with a safe next URL" test used `next=/books/`, which is also the default destination, so it would have passed even if `next` were ignored. Changed it to `next=/` so the test actually proves `next` works.
+- **Ruff findings:** unused imports in Django's generated `books/admin.py` and `books/models.py` (fixed with `ruff check --fix`; these files get real code in Phase 2). Rule `PLW1510` asked for an explicit `check=False` on `subprocess.run` in the settings test (added, with a comment). Django's generated files used single quotes and some long lines needed wrapping (fixed with `ruff format .`).
+- **Deployment check (informational, not fixed):** `manage.py check --deploy` with production-like settings reports the expected HTTPS and secure-cookie warnings and a console email backend error. Deployment is out of scope for this local project. These will be documented in the README's deployment notes (Phase 11).
+
+### Decisions
+- Use Django 6.1 and DRF 3.18 (the latest versions, both officially supporting Python 3.14).
+- Bootstrap's JavaScript bundle is loaded only for the collapsible navbar and dismissible alerts. Filtering still uses no JavaScript.
+- The sign-up view is a short function view (the standard Django tutorial pattern), so the `GET`/`POST` flow is easy to read.
+
+### Manual Browser Testing Results
+The student tested Phase 1 in the browser (`uv run manage.py runserver`). These checks passed:
+
+| Check | Result |
+|---|---|
+| Account registration and automatic login | Passed |
+| Welcome message after registration | Passed |
+| Logout and confirmation message | Passed |
+| Logging back in and reaching My Reading List | Passed |
+| Unauthenticated users redirected to login | Passed |
+| `GET` request to the logout URL returns 405 | Passed |
+| User stays logged in after the rejected `GET` | Passed |
+| Mobile layout and collapsible navigation menu | Passed |
+
+Not included in the reported results: the wrong-password error (step 4), the redirect away from login and sign-up while logged in (step 6), and the mismatched-password sign-up error (step 10). These are covered by automated tests.
+
+### Phase 1 Checkpoint
+- Phase 1 complete: automated checks pass and manual browser verification was approved by the student.
+- Committed and pushed as the Phase 1 checkpoint.
+
+### Next Steps
+- Phase 2: SavedBook model, admin, and basic reading list.

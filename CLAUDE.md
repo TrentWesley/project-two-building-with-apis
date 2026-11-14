@@ -29,8 +29,8 @@ If a request conflicts with these documents, point out the conflict and ask befo
 ## Stack
 
 - Python **3.14** (pinned in `.python-version`), managed with **uv**
-- **Django** + **Django REST Framework** (with `rest_framework.authtoken`), added in Phase 1.
-  Their versions must officially support Python 3.14.
+- **Django 6.1** + **Django REST Framework 3.18** (with `rest_framework.authtoken`, enabled in Phase 8).
+  Both officially support Python 3.14 (verified on PyPI in Phase 1).
 - **SQLite** (Django default)
 - **Bootstrap 5 via CDN**: no frontend build tools, no JavaScript for filtering
 - **pytest** + **pytest-django** for tests, **Ruff** for linting and formatting
@@ -39,11 +39,11 @@ If a request conflicts with these documents, point out the conflict and ask befo
 ## Project structure
 
 ```
-manage.py          Django entry point (Phase 1)
-config/            Django project: settings, root URLs (Phase 1)
+manage.py          Django entry point
+config/            Django project: settings, root URLs
 books/             The ONLY Django app: model, views, forms, filters helper,
                    Open Library service module, API serializer/views, admin, templates, tests
-templates/         Shared base layout, home page, and auth pages
+templates/         Shared base layout, home page, auth pages (registration/), and includes/ partials
 main.py            Script 1: searches Open Library from the terminal (FINISHED; keep independent)
 test_main.py       Tests for script 1
 api_script.py      Script 2: lists my books via our API and updates a status (Phase 10)
@@ -87,12 +87,13 @@ prototypes/        Throwaway UI prototype kept as evidence (not production code)
 | Format check / apply | `uv run ruff format --check .` / `uv run ruff format .` |
 | Migrations | `uv run manage.py makemigrations` · `uv run manage.py migrate` |
 | Check migrations are current | `uv run manage.py makemigrations --check --dry-run` |
+| Django system check | `uv run manage.py check` |
 | Dev server | `uv run manage.py runserver` → http://127.0.0.1:8000 |
 | Admin user | `uv run manage.py createsuperuser` |
 | API token | `uv run manage.py drf_create_token <username>` |
 | Script 1 / Script 2 | `uv run main.py` / `uv run api_script.py` |
 
-The Django commands become available in Phase 1. Always use `uv run`, never a bare `python` or `pip`.
+Always use `uv run`, never a bare `python` or `pip`.
 
 ## Coding conventions
 
@@ -103,6 +104,8 @@ The Django commands become available in Phase 1. Always use `uv run`, never a ba
 - Use `.get()` with defaults for external data, so missing fields never raise `KeyError`.
 - Scripts use small functions, `timeout=10`, friendly messages (never tracebacks), and the `if __name__ == "__main__":` guard.
 - Code must pass `ruff check` and `ruff format --check` with no warnings.
+- Forms get Bootstrap styling from the `BootstrapFormMixin` in `books/forms.py`. Templates render fields with `templates/includes/form_fields.html`.
+- Website tests live in `books/tests/`, use pytest-django's `client` fixture, and use a throwaway test-only password.
 
 ## Testing requirements
 
