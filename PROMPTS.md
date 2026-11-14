@@ -416,3 +416,71 @@ Not included in the reported results: the admin search and filters (steps 5–6)
 
 ### Next Steps
 - Phase 3: Search Open Library.
+
+---
+
+## Session 12: Phase 3, Search Open Library
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- `/implement` Phase 3 of `plans/django-reading-list.md`, after re-reading `CLAUDE.md`, the PRD, the plan, and the Open Library research, stopping at each `/tdd` RED and GREEN for approval.
+- Approved the three `/tdd` behaviors one at a time, then asked to complete the remaining Phase 3 work with mocked API requests and no Save buttons (Phase 4).
+
+### Work Completed
+- **`books/openlibrary.py` (service module, separate from `main.py`):** `search_books(title)` calls the Search API with `title=`, `fields=key,title,author_name,first_publish_year,cover_i`, `limit=10`, User-Agent `CIDM3312-BookSearch/1.0`, `timeout=10`, and `raise_for_status()`. It returns `{"total", "books"}`. Network errors, timeouts, HTTP errors, invalid JSON, and unexpected response shapes all become one `OpenLibraryError`. `clean_book(doc)` converts a raw result into a dictionary using the `SavedBook` field names.
+- **`/search/` page (login required, `GET`):** a search form. Blank or spaces-only input shows "Please enter a book title." with no API call. Results show "Found N matches. Showing the first M." (comma-separated total, singular "match" for 1) and Layout B cards with the shared cover include (cover or "No cover" placeholder), title, authors, and year (or "Year unknown"). No results shows `No books found for "<title>".` A failure shows a friendly red alert, and the technical details are logged on the server.
+- **Navbar:** a "Search Open Library" link (highlighted on the search page). The empty reading list's link now points to the real search page.
+- **Test safety net:** `books/tests/conftest.py` blocks real network calls in every Django test.
+
+### TDD (3 behaviors)
+1. **Open Library results are normalized, including missing fields** (3 cases: complete, missing fields, empty author list). RED: the stub returned `{}`. GREEN: `clean_book()` using `.get()` with defaults and an `if author_names:` check.
+2. **A blank search shows a message without calling Open Library.** RED: 404 (no search page). GREEN: a login-required view that strips the title and shows the message when it is blank, before any API call.
+3. **An Open Library failure shows a friendly alert.** RED: the alert was missing. GREEN: `try`/`except OpenLibraryError` in the view, plus `logger.warning(...)` for the technical details.
+
+### Tests
+- 51 tests pass: 5 TDD test cases (behavior 1 has 3 cases), 13 more Phase 3 tests, and the 33 earlier tests.
+- The other Phase 3 tests cover:
+  - the exact request (URL, params, User-Agent, timeout) and the clean results
+  - connection errors and timeouts, HTTP errors, invalid JSON, and unexpected shapes becoming `OpenLibraryError`
+  - login required, and a first visit showing no messages and making no call
+  - the results line with the comma total, cards, and placeholders
+  - singular wording, the no-results message, the search term being stripped, and the error being logged
+- `ruff check`, `ruff format --check`, `manage.py check`, and `makemigrations --check` all pass.
+- One live smoke test outside the test suite (real API): "dune" returned 21,109 matches and 10 results, "the relentless moon" returned 1, and a made-up title returned 0.
+
+### Bugs and Fixes
+- **Wrong test expectation:** the no-results test expected `&quot;` around the search term, but the quote marks are typed directly in the template, so they appear as plain `"`. Django only escapes variables (its protection against code injection). Fixed the test, not the page.
+- **Ruff `I001`:** a blank line between two imports in the service tests (auto-fixed).
+
+### Decisions
+- One `OpenLibraryError` for every failure, so the view handles a single case.
+- The view formats the comma-separated total itself (for example, 21,108) instead of adding Django's `humanize` app, keeping to "no extra apps".
+- Search cards use the same shared cover include and Layout B grid as the reading list.
+
+### Manual Browser Testing Results
+The student personally tested Phase 3 in the browser against the live Open Library API. All checks passed:
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Search Open Library navigation link and search page work | Passed |
+| 2 | "dune" returns 10 book cards with covers, titles, authors, and years | Passed |
+| 3 | "the relentless moon" returns one result with singular wording | Passed |
+| 4 | A nonexistent book shows the no-results message | Passed |
+| 5 | Empty and spaces-only searches show the warning | Passed |
+| 6 | Missing covers, years, and authors show placeholders | Passed |
+| 7 | Refreshing a search keeps the query and results | Passed |
+| 8 | Logged-out users are redirected to login | Passed |
+| 9 | The empty reading list links to the search page | Passed |
+| 10 | Responsive mobile layout | Passed |
+| 11 | Simulated API failure (`HTTPS_PROXY=http://127.0.0.1:9`) shows the friendly red alert without crashing | Passed |
+| 12 | After removing `HTTPS_PROXY`, normal searches work again | Passed |
+
+Not included in the reported results: the `WARNING` line in the server terminal during the simulated failure. Logging is covered by an automated test (`caplog`).
+
+### Phase 3 Checkpoint
+- Phase 3 complete: automated checks pass and manual browser verification was approved by the student.
+- Committed and pushed as the Phase 3 checkpoint.
+
+### Next Steps
+- Phase 4: save Open Library search results to the reading list.

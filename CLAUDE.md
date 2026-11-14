@@ -115,6 +115,10 @@ Always use `uv run`, never a bare `python` or `pip`.
 - All tests run with **`uv run pytest`** (plain `assert` style), including script 1 tests.
 - **Tests never call the real Open Library API or need a running server.** Fake external calls with pytest's
   built-in `monkeypatch`.
+- `books/tests/conftest.py` has an autouse fixture that makes any real `requests.get` call fail, so a test that
+  forgets to fake HTTP fails loudly instead of reaching the internet.
+- Views call the service as `openlibrary.search_books(...)` (through the module) so tests can replace it with
+  `monkeypatch.setattr(openlibrary, "search_books", fake)`. Service tests fake `requests.get` instead.
 - Every phase adds tests for its acceptance criteria. Checks that must pass before a phase is done:
   `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and (from Phase 2)
   `makemigrations --check --dry-run`.

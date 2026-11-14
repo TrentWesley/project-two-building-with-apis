@@ -31,8 +31,7 @@
 {% else %}
   <div class="alert alert-info">
     Your reading list is empty.
-    {# The search page is added in Phase 3. #}
-    <a href="/search/" class="alert-link">Search Open Library</a> to add books.
+    <a href="{% url 'search' %}" class="alert-link">Search Open Library</a> to add books.
   </div>
 {% endif %}
 {% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Search Open Library{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Search Open Library</h1>
+
+<form method="get" action="{% url 'search' %}" class="row g-2 mb-4" role="search">
+  <div class="col-12 col-md-9">
+    <label class="visually-hidden" for="search-title">Book title</label>
+    <input type="search" class="form-control" id="search-title" name="title"
+           value="{{ title }}" placeholder="Enter a book title, e.g. Dune">
+  </div>
+  <div class="col-12 col-md-3 d-grid">
+    <button type="submit" class="btn btn-primary">Search</button>
+  </div>
+</form>
+
+{% if blank_search %}
+  <div class="alert alert-warning">Please enter a book title.</div>
+{% endif %}
+
+{% if api_error %}
+  <div class="alert alert-danger">
+    Sorry, we couldn't reach Open Library right now. Please try again later.
+  </div>
+{% endif %}
+
+{% if searched %}
+  {% if books %}
+    <p class="text-muted">
+      Found {{ total_display }} match{{ total|pluralize:"es" }}.
+      Showing the first {{ books|length }}.
+    </p>
+    <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
+      {% for book in books %}
+        <div class="col">
+          <div class="card h-100 shadow-sm">
+            {% include "books/includes/cover.html" %}
+            <div class="card-body">
+              <h2 class="h6 card-title mb-1">{{ book.title }}</h2>
+              <p class="text-muted small mb-0">{{ book.author }}</p>
+              <p class="text-muted small mb-0">
+                {% if book.first_publish_year %}{{ book.first_publish_year }}{% else %}Year unknown{% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="alert alert-info">No books found for "{{ title }}".</div>
+  {% endif %}
+{% endif %}
+{% endblock %}

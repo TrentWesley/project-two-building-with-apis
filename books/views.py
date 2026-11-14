@@ -1,12 +1,18 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.shortcuts import redirect, render
 from django.views.generic import ListView
 
+from . import openlibrary
 from .forms import LoginForm, SignUpForm
 from .models import SavedBook
+
+logger = logging.getLogger(__name__)
 
 
 def home(request):
@@ -51,6 +57,33 @@ class LogoutWithMessageView(LogoutView):
         response = super().post(request, *args, **kwargs)
         messages.info(request, "You have been logged out.")
         return response
+
+
+@login_required
+def search(request):
+    """Search Open Library by title (GET /search/?title=...)."""
+    title = request.GET.get("title")
+    context = {"title": ""}
+
+    if title is not None:
+        title = title.strip()
+        context["title"] = title
+        if not title:
+            context["blank_search"] = True
+        else:
+            try:
+                results = openlibrary.search_books(title)
+                context["books"] = results["books"]
+                context["total"] = results["total"]
+                # A comma-separated total for display, e.g. 21108 -> "21,108".
+                context["total_display"] = f"{results['total']:,}"
+                context["searched"] = True
+            except openlibrary.OpenLibraryError as error:
+                # Technical details go to the server log, never to the page.
+                logger.warning("Open Library search failed for %r: %s", title, error)
+                context["api_error"] = True
+
+    return render(request, "books/search.html", context)
 
 
 class BookListView(LoginRequiredMixin, ListView):
