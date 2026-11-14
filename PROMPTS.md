@@ -114,3 +114,53 @@ No Claude Code prompts used yet.
 ### Next Steps
 - Implement `search_books()` and `main()` according to the plan.
 - Run the manual testing checklist for successful searches, no results, blank input, spaces only, and API errors.
+
+---
+
+## Session 5: Implementing the Search Script
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- `/implement` to complete the Open Library search script according to `docs/plans/open-library-search-script.md`.
+- Confirmed that this phase had no additional TDD behaviors, because `search_books()` and `main()` use the live API and user input, which we agreed to test manually.
+- Asked to implement `search_books()` first, verify it with a live API search, and stop for approval before implementing `main()`.
+- Asked to implement `main()`, then add Ruff and run the linter, formatter, and tests.
+- Ran the manual testing checklist and asked to document, commit, and push the completed script.
+
+### Work Completed
+- Implemented `search_books(title)` in `main.py`. It calls `https://openlibrary.org/search.json` with `title`, `limit=5`, and `fields=title,author_name`, sends the `CIDM3312-BookSearch/1.0` User-Agent, uses a 10-second timeout, and calls `raise_for_status()`.
+- Verified `search_books()` with live searches: "dune" returned 5 books, and a made-up title returned `numFound: 0`.
+- Implemented `main()`. It prompts for a title, strips extra spaces, rejects blank input, searches once, shows the match count (singular "match" for one), prints a numbered list using `format_book()`, shows a "No books found" message, and catches `RequestException` and `ValueError` without crashing.
+- Added `if __name__ == "__main__": main()` so the tests can import functions without running the script.
+- Installed Ruff as a development dependency with `uv add --dev ruff`.
+
+### Checks
+- `uv run pytest`: all 5 tests passed.
+- `uv run ruff check .`: all checks passed.
+- `uv run ruff format --check .`: all files already formatted. No fixes were needed.
+
+### Manual Testing Results
+All 8 manual tests passed using `uv run main.py`:
+
+| # | Test | Result |
+|---|---|---|
+| 1 | Normal search for "dune" | Passed: total count and 5 numbered books |
+| 2 | Search with zero results | Passed: `No books found for "<title>".` |
+| 3 | Blank input | Passed: `Please enter a book title.` |
+| 4 | Spaces-only input | Passed: `Please enter a book title.` |
+| 5 | Search returning exactly one book | Passed: `Found 1 match. Showing the first 1.` |
+| 6 | Search returning two books | Passed: `Found 2 matches. Showing the first 2.` |
+| 7 | "dune" with extra spaces | Passed: same results as "dune" |
+| 8 | Simulated network error | Passed: friendly error message, no Python traceback |
+
+The network error was simulated with a temporary, unreachable `HTTPS_PROXY` setting, which was removed and verified as cleared afterward.
+
+### Decisions
+- Kept error handling in `main()` and let `search_books()` raise errors, so one function decides what the user sees.
+- Used `data.get()` with defaults for `numFound` and `docs` so an unexpected response cannot cause a `KeyError`.
+- Used `if not books:` to detect no results, matching the empty-list check in `format_book()`.
+- Added Ruff as the linter and formatter for the project.
+
+### Next Steps
+- Begin planning the Django application for Project #2.
