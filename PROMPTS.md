@@ -236,3 +236,31 @@ The network error was simulated with a temporary, unreachable `HTTPS_PROXY` sett
 ### Next Steps
 - Provide the five required reflection questions before the reflection phase.
 - Run `/prd-to-plan` to create the phased implementation plan, then review it before any coding.
+
+---
+
+## Session 8: Phased Implementation Plan
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- `/prd-to-plan` to break the approved PRD into a phased implementation plan using vertical slices.
+- Reviewed the proposed 11-phase breakdown and approved it without merging or splitting phases.
+- Asked for the full plan with files, tests, `/tdd` behaviors, manual verification, the `/implement` workflow, commit checkpoints, documentation updates, reflection evidence, dependencies, commands, a final regression checklist, and a reflection reminder.
+- Approved the plan and asked to disable `PUT` on the API.
+
+### Work Completed
+- Created `plans/django-reading-list.md` with the architectural decisions (URLs, model, auth, shared helper), the commands, the standard phase workflow, phase dependencies, Phase 0 (`CLAUDE.md`), Phases 1–11, a final regression checklist, and a reflection reminder.
+- Each phase lists its user stories, what to build, expected files, at most 3 `/tdd` behaviors, other required tests, manual browser checks, screenshots to collect, and a commit message.
+
+### Decisions
+- 11 implementation phases, each a vertical slice with its own commit: skeleton and accounts, SavedBook and basic list, Open Library search, save from search, filter/sort/paginate, edit and delete, logged-in Home, API list and detail, API update and delete, script 2, and docs and final check.
+- `CLAUDE.md` is created in Phase 0, after the plan is approved and before any Django code.
+- Account URLs are under `/accounts/` (`signup`, `login`, `logout`), and saving uses `POST /books/save/` with a safe "return to" URL.
+- Phase 1 uses a placeholder `/books/` page, and Phase 2 adds books through the admin until saving exists in Phase 4.
+- Screenshots go in `docs/screenshots/`, and must never show tokens or passwords.
+- **`PUT` is disabled on the API** (returns 405). `PATCH` handles partial updates to status, rating, and notes. Open Library fields stay read-only. `GET` and `DELETE` work as planned.
+
+### Next Steps
+- Phase 0: create `CLAUDE.md`.
+- Phase 1: project skeleton and accounts.
