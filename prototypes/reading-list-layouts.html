@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reading List Layouts</title>
+  <!-- PROTOTYPE ONLY: throwaway file for choosing the My Reading List layout. Not production code. -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f5f6f8; padding-bottom: 140px; }
+    .cover-sm { width: 40px; height: 60px; object-fit: cover; border-radius: 3px; }
+    .cover-xs { width: 32px; height: 48px; object-fit: cover; border-radius: 2px; }
+    .cover-lg { height: 220px; object-fit: contain; background: #eef0f3; }
+    .no-cover { display: flex; align-items: center; justify-content: center; background: #e2e5ea;
+                color: #6c757d; font-size: .7rem; text-align: center; border-radius: 3px; }
+    .stars { color: #f0ad00; letter-spacing: 1px; white-space: nowrap; }
+    .stars .off { color: #d0d4da; }
+    .group-heading { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; }
+
+    /* Variant switcher: deliberately NOT Bootstrap-styled so it stands apart from the designs */
+    #switcher { position: fixed; right: 16px; bottom: 16px; z-index: 2000; width: min(360px, calc(100vw - 32px));
+                background: #1d1f24; color: #e9eaee; border-radius: 12px; padding: 12px 14px;
+                font: 13px/1.4 ui-monospace, Consolas, monospace; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+    #switcher .row1 { display: flex; align-items: center; gap: 8px; }
+    #switcher button { background: #3a3d45; color: #fff; border: 0; border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; }
+    #switcher button:hover { background: #50545e; }
+    #switcher .name { flex: 1; text-align: center; font-weight: bold; }
+    #switcher .state { margin-top: 8px; color: #a9adb8; white-space: pre-wrap; }
+    #switcher .last { margin-top: 6px; color: #8fd18f; }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand navbar-dark bg-dark mb-4">
+  <div class="container">
+    <a class="navbar-brand" href="#">📚 Reading List</a>
+    <ul class="navbar-nav me-auto">
+      <li class="nav-item"><a class="nav-link" href="#">Search Open Library</a></li>
+      <li class="nav-item"><a class="nav-link active" href="#">My Reading List</a></li>
+    </ul>
+    <span class="navbar-text me-3 d-none d-sm-inline">reader1</span>
+    <button class="btn btn-outline-light btn-sm">Log out</button>
+  </div>
+</nav>
+
+<main class="container" id="app"></main>
+
+<footer class="container text-center text-muted small mt-4">
+  Data from <a href="https://openlibrary.org" target="_blank" rel="noopener">Open Library</a>
+</footer>
+
+<div id="switcher" aria-label="Prototype variant switcher">
+  <div class="row1">
+    <button id="prev" title="Previous layout (←)">←</button>
+    <div class="name" id="variant-name"></div>
+    <button id="next" title="Next layout (→)">→</button>
+  </div>
+  <div class="state" id="state"></div>
+  <div class="last" id="last"></div>
+  <div style="margin-top:8px;text-align:right"><button id="reset">Reset sample data</button></div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Sample data: real Open Library works (titles, authors, years, cover IDs).
+// Status, rating, and dates are made up. Kept in memory only.
+// ---------------------------------------------------------------------------
+const SAMPLE_BOOKS = [
+  { id: 1,  title: "Dune", author: "Frank Herbert", year: 1965, cover: 11481354, status: "finished", rating: 5, added: "2026-10-02" },
+  { id: 2,  title: "The Hobbit", author: "J.R.R. Tolkien", year: 1937, cover: 14627509, status: "finished", rating: 4, added: "2026-10-05" },
+  { id: 3,  title: "Project Hail Mary", author: "Andy Weir", year: 2021, cover: 11200092, status: "reading", rating: null, added: "2026-11-10" },
+  { id: 4,  title: "The Left Hand of Darkness", author: "Ursula K. Le Guin", year: 1969, cover: 10618463, status: "want_to_read", rating: null, added: "2026-11-01" },
+  { id: 5,  title: "Neuromancer", author: "William Gibson", year: 1984, cover: 283860, status: "want_to_read", rating: null, added: "2026-10-20" },
+  { id: 6,  title: "Piranesi", author: "Susanna Clarke", year: 2020, cover: 10226290, status: "finished", rating: 5, added: "2026-09-14" },
+  { id: 7,  title: "Good Omens", author: "Terry Pratchett, Neil Gaiman", year: 1990, cover: 10482258, status: "reading", rating: null, added: "2026-11-08" },
+  { id: 8,  title: "Klara and the Sun", author: "Kazuo Ishiguro", year: 2019, cover: 10648686, status: "finished", rating: 3, added: "2026-09-30" },
+  { id: 9,  title: "The Relentless Moon", author: "Mary Robinette Kowal", year: 2020, cover: 10208754, status: "want_to_read", rating: null, added: "2026-11-12" },
+  { id: 10, title: "A Wizard of Earthsea", author: "Ursula K. Le Guin", year: 1968, cover: 13617691, status: "finished", rating: 4, added: "2026-08-22" },
+  { id: 11, title: "Station Eleven", author: "Emily St. John Mandel", year: 2014, cover: 7369961, status: "want_to_read", rating: null, added: "2026-10-28" },
+  { id: 12, title: "The Martian", author: "Andy Weir", year: 2011, cover: 11447888, status: "finished", rating: 4, added: "2026-09-03" },
+  { id: 13, title: "Hyperion Cantos", author: "Dan Simmons", year: null, cover: null, status: "want_to_read", rating: null, added: "2026-11-13" },
+];
+
+const STATUS_LABELS = { want_to_read: "Want to Read", reading: "Reading", finished: "Finished" };
+const STATUS_BADGE  = { want_to_read: "text-bg-secondary", reading: "text-bg-primary", finished: "text-bg-success" };
+const SORT_LABELS   = { newest: "Newest saved", oldest: "Oldest saved", title: "Title A–Z", author: "Author A–Z" };
+const PAGE_SIZE = 10;
+
+// ---------------------------------------------------------------------------
+// Pure logic: mirrors the agreed filter_books rules (Question 12).
+// ---------------------------------------------------------------------------
+function filterBooks(books, q, status, sort) {
+  let result = books.slice();
+  const term = (q || "").trim().toLowerCase();
+  if (term) result = result.filter(b => b.title.toLowerCase().includes(term) || b.author.toLowerCase().includes(term));
+  if (status in STATUS_LABELS) result = result.filter(b => b.status === status);
+  const sorters = {
+    title:  (a, b) => a.title.localeCompare(b.title),
+    author: (a, b) => a.author.localeCompare(b.author),
+    oldest: (a, b) => a.added.localeCompare(b.added),
+    newest: (a, b) => b.added.localeCompare(a.added),
+  };
+  result.sort(sorters[sort] || sorters.newest);
+  return result;
+}
+
+function paginate(items, page) {
+  const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const current = Math.min(Math.max(1, page), pages);
+  return { pageItems: items.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE), current, pages };
+}
+
+// ---------------------------------------------------------------------------
+// Prototype state (in memory only)
+// ---------------------------------------------------------------------------
+const VARIANTS = [
+  { key: "A", name: "Table" },
+  { key: "B", name: "Card grid + sidebar" },
+  { key: "C", name: "Compact list grouped by status" },
+];
+let state = { variant: 0, q: "", status: "", sort: "newest", page: 1, books: structuredClone(SAMPLE_BOOKS), last: "" };
+try { const saved = Number(localStorage.getItem("rl-proto-variant")); if (saved >= 0 && saved < VARIANTS.length) state.variant = saved; } catch (e) {}
+
+// ---------------------------------------------------------------------------
+// Small HTML helpers
+// ---------------------------------------------------------------------------
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function cover(book, cls, size) {
+  if (!book.cover) return `<div class="no-cover ${cls}">No cover</div>`;
+  return `<img class="${cls}" src="https://covers.openlibrary.org/b/id/${book.cover}-${size}.jpg" alt="Cover of ${esc(book.title)}" loading="lazy">`;
+}
+function stars(rating) {
+  if (!rating) return `<span class="text-muted small">Not rated</span>`;
+  return `<span class="stars" title="${rating} of 5">${"★".repeat(rating)}<span class="off">${"★".repeat(5 - rating)}</span></span>`;
+}
+const badge = s => `<span class="badge ${STATUS_BADGE[s]}">${STATUS_LABELS[s]}</span>`;
+const year = b => b.year ? b.year : "Year unknown";
+const statusOptions = () => `<option value="">All statuses</option>` +
+  Object.entries(STATUS_LABELS).map(([v, l]) => `<option value="${v}" ${state.status === v ? "selected" : ""}>${l}</option>`).join("");
+const sortOptions = () => Object.entries(SORT_LABELS).map(([v, l]) => `<option value="${v}" ${state.sort === v ? "selected" : ""}>${l}</option>`).join("");
+const actions = (b, size = "btn-sm") =>
+  `<button class="btn btn-outline-primary ${size}" data-edit="${b.id}">Edit</button>
+   <button class="btn btn-outline-danger ${size}" data-delete="${b.id}">Delete</button>`;
+
+function pagination(p) {
+  if (p.pages <= 1) return "";
+  let html = `<nav aria-label="Pages"><ul class="pagination justify-content-center mb-0">`;
+  html += `<li class="page-item ${p.current === 1 ? "disabled" : ""}"><a class="page-link" href="#" data-page="${p.current - 1}">Previous</a></li>`;
+  for (let i = 1; i <= p.pages; i++) html += `<li class="page-item ${i === p.current ? "active" : ""}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+  html += `<li class="page-item ${p.current === p.pages ? "disabled" : ""}"><a class="page-link" href="#" data-page="${p.current + 1}">Next</a></li></ul></nav>`;
+  return html;
+}
+
+function emptyMessage() {
+  if (state.books.length === 0)
+    return `<div class="alert alert-info">Your reading list is empty. <a href="#">Search Open Library</a> to add books.</div>`;
+  return `<div class="alert alert-warning">No books match${state.q.trim() ? ` "${esc(state.q.trim())}"` : ""}. Try a different search or filter.</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Variant A: dense table, filters in one toolbar row above it
+// ---------------------------------------------------------------------------
+function renderTable(filtered, p) {
+  const rows = p.pageItems.map(b => `
+    <tr>
+      <td>${cover(b, "cover-sm", "S")}</td>
+      <td><div class="fw-semibold">${esc(b.title)}</div><div class="text-muted small">${year(b)}</div></td>
+      <td>${esc(b.author)}</td>
+      <td>${badge(b.status)}</td>
+      <td>${stars(b.rating)}</td>
+      <td class="text-end text-nowrap">${actions(b)}</td>
+    </tr>`).join("");
+  return `
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1 class="h3 mb-0">My Reading List</h1>
+      <span class="text-muted">${filtered.length} book${filtered.length === 1 ? "" : "s"}</span>
+    </div>
+    <form class="row g-2 mb-3" data-role="filters">
+      <div class="col-12 col-md-5"><input class="form-control" name="q" placeholder="Search title or author" value="${esc(state.q)}"></div>
+      <div class="col-6 col-md-3"><select class="form-select" name="status">${statusOptions()}</select></div>
+      <div class="col-6 col-md-2"><select class="form-select" name="sort">${sortOptions()}</select></div>
+      <div class="col-12 col-md-2 d-grid"><button class="btn btn-primary">Search</button></div>
+    </form>
+    ${filtered.length === 0 ? emptyMessage() : `
+    <div class="card shadow-sm mb-3"><div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light"><tr><th style="width:56px"></th><th>Title</th><th>Author</th><th>Status</th><th>Rating</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div></div>`}
+    ${pagination(p)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Variant B: big covers in a card grid, filters in a left sidebar
+// ---------------------------------------------------------------------------
+function renderCards(filtered, p) {
+  const counts = s => state.books.filter(b => !s || b.status === s).length;
+  const statusRadios = [["", "All statuses"], ...Object.entries(STATUS_LABELS)].map(([v, l]) => `
+    <label class="list-group-item d-flex justify-content-between align-items-center">
+      <span><input class="form-check-input me-2" type="radio" name="status" value="${v}" ${state.status === v ? "checked" : ""}>${l}</span>
+      <span class="badge rounded-pill text-bg-light">${counts(v)}</span>
+    </label>`).join("");
+  const cards = p.pageItems.map(b => `
+    <div class="col">
+      <div class="card h-100 shadow-sm">
+        ${b.cover ? cover(b, "card-img-top cover-lg", "M") : `<div class="no-cover card-img-top" style="height:220px;font-size:.9rem">No cover</div>`}
+        <div class="card-body">
+          <div class="mb-2">${badge(b.status)}</div>
+          <h2 class="h6 card-title mb-1">${esc(b.title)}</h2>
+          <div class="text-muted small mb-2">${esc(b.author)} · ${year(b)}</div>
+          ${stars(b.rating)}
+        </div>
+        <div class="card-footer bg-white d-flex gap-2">${actions(b)}</div>
+      </div>
+    </div>`).join("");
+  return `
+    <div class="row g-4">
+      <aside class="col-12 col-lg-3">
+        <form data-role="filters" class="card shadow-sm">
+          <div class="card-body">
+            <h1 class="h5">My Reading List</h1>
+            <label class="form-label small text-muted mt-2">Search</label>
+            <div class="input-group mb-3">
+              <input class="form-control" name="q" placeholder="Title or author" value="${esc(state.q)}">
+              <button class="btn btn-primary">Go</button>
+            </div>
+            <label class="form-label small text-muted">Status</label>
+            <div class="list-group mb-3">${statusRadios}</div>
+            <label class="form-label small text-muted">Sort by</label>
+            <select class="form-select" name="sort">${sortOptions()}</select>
+          </div>
+        </form>
+      </aside>
+      <section class="col-12 col-lg-9">
+        <p class="text-muted">${filtered.length} book${filtered.length === 1 ? "" : "s"}</p>
+        ${filtered.length === 0 ? emptyMessage() : `<div class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-3 mb-4">${cards}</div>`}
+        ${pagination(p)}
+      </section>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Variant C: compact rows grouped under status headings, status as pill tabs
+// ---------------------------------------------------------------------------
+function renderGrouped(filtered, p) {
+  const counts = s => state.books.filter(b => !s || b.status === s).length;
+  const pills = [["", "All"], ...Object.entries(STATUS_LABELS)].map(([v, l]) => `
+    <li class="nav-item"><a class="nav-link ${state.status === v ? "active" : ""}" href="#" data-status="${v}">
+      ${l} <span class="badge rounded-pill ${state.status === v ? "text-bg-light" : "text-bg-secondary"}">${counts(v)}</span></a></li>`).join("");
+  const groups = Object.keys(STATUS_LABELS).map(s => {
+    const items = p.pageItems.filter(b => b.status === s);
+    if (items.length === 0) return "";
+    return `
+      <h2 class="group-heading text-muted mt-4 mb-2">${STATUS_LABELS[s]} · ${items.length}</h2>
+      <ul class="list-group shadow-sm">
+        ${items.map(b => `
+          <li class="list-group-item d-flex align-items-center gap-3 py-2">
+            ${cover(b, "cover-xs", "S")}
+            <div class="flex-grow-1 text-truncate">
+              <span class="fw-semibold">${esc(b.title)}</span>
+              <span class="text-muted"> — ${esc(b.author)}</span>
+              <span class="text-muted small d-none d-md-inline"> · ${year(b)}</span>
+            </div>
+            <div class="d-none d-sm-block">${stars(b.rating)}</div>
+            <div class="text-nowrap">${actions(b, "btn-sm py-0")}</div>
+          </li>`).join("")}
+      </ul>`;
+  }).join("");
+  return `
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h1 class="h3 mb-0">My Reading List</h1>
+      <form class="d-flex gap-2" data-role="filters">
+        <input class="form-control form-control-sm" name="q" placeholder="Search title or author" value="${esc(state.q)}">
+        <select class="form-select form-select-sm" name="sort" style="width:auto">${sortOptions()}</select>
+        <button class="btn btn-sm btn-primary">Search</button>
+      </form>
+    </div>
+    <ul class="nav nav-pills mb-2">${pills}</ul>
+    ${filtered.length === 0 ? emptyMessage() : groups}
+    <div class="mt-4">${pagination(p)}</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Render + events
+// ---------------------------------------------------------------------------
+const RENDERERS = [renderTable, renderCards, renderGrouped];
+
+function render() {
+  const filtered = filterBooks(state.books, state.q, state.status, state.sort);
+  const p = paginate(filtered, state.page);
+  state.page = p.current;
+  document.getElementById("app").innerHTML = RENDERERS[state.variant](filtered, p);
+
+  const v = VARIANTS[state.variant];
+  document.getElementById("variant-name").textContent = `${v.key} · ${v.name}  (${state.variant + 1}/${VARIANTS.length})`;
+  document.getElementById("state").textContent =
+    `q="${state.q.trim()}"  status=${state.status || "all"}  sort=${state.sort}\n` +
+    `page ${p.current}/${p.pages} · showing ${p.pageItems.length} of ${filtered.length} matching · ${state.books.length} saved`;
+  document.getElementById("last").textContent = state.last ? `Last action: ${state.last}` : "";
+  try { localStorage.setItem("rl-proto-variant", String(state.variant)); } catch (e) {}
+}
+
+function switchVariant(step) {
+  state.variant = (state.variant + step + VARIANTS.length) % VARIANTS.length;
+  render();
+}
+
+const app = document.getElementById("app");
+
+app.addEventListener("submit", e => {
+  if (e.target.dataset.role !== "filters") return;
+  e.preventDefault();
+  state.q = e.target.elements.q.value;
+  state.page = 1;
+  state.last = state.q.trim() ? `searched for "${state.q.trim()}"` : "cleared search";
+  render();
+});
+
+app.addEventListener("change", e => {
+  const el = e.target;
+  if (el.name === "status") { state.status = el.value; state.page = 1; state.last = `filtered to ${STATUS_LABELS[el.value] || "all statuses"}`; }
+  else if (el.name === "sort") { state.sort = el.value; state.page = 1; state.last = `sorted by ${SORT_LABELS[el.value]}`; }
+  else return;
+  const form = el.closest("form");
+  if (form && form.elements.q) state.q = form.elements.q.value;
+  render();
+});
+
+app.addEventListener("click", e => {
+  const t = e.target.closest("[data-page],[data-status],[data-edit],[data-delete]");
+  if (!t) return;
+  e.preventDefault();
+  if (t.dataset.page) { state.page = Number(t.dataset.page); state.last = `went to page ${state.page}`; }
+  else if (t.dataset.status !== undefined) { state.status = t.dataset.status; state.page = 1; state.last = `filtered to ${STATUS_LABELS[state.status] || "all statuses"}`; }
+  else if (t.dataset.edit) {
+    const b = state.books.find(x => x.id === Number(t.dataset.edit));
+    state.last = `Edit "${b.title}" (would open /books/${b.id}/edit/)`;
+  } else if (t.dataset.delete) {
+    const b = state.books.find(x => x.id === Number(t.dataset.delete));
+    state.books = state.books.filter(x => x.id !== b.id);
+    state.last = `deleted "${b.title}" (real app: confirmation page first)`;
+  }
+  render();
+});
+
+document.getElementById("prev").addEventListener("click", () => switchVariant(-1));
+document.getElementById("next").addEventListener("click", () => switchVariant(1));
+document.getElementById("reset").addEventListener("click", () => {
+  state = { ...state, q: "", status: "", sort: "newest", page: 1, books: structuredClone(SAMPLE_BOOKS), last: "reset sample data" };
+  render();
+});
+document.addEventListener("keydown", e => {
+  if (["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
+  if (e.key === "ArrowLeft") switchVariant(-1);
+  if (e.key === "ArrowRight") switchVariant(1);
+});
+
+render();
+</script>
+</body>
+</html>
