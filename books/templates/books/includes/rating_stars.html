@@ -1,0 +1,7 @@
+{% comment %}Shows a 1–5 rating as stars, or "Not rated".{% endcomment %}
+{% if book.rating %}
+  <span class="stars" title="{{ book.rating }} out of 5">{% for i in "12345" %}{% if forloop.counter <= book.rating %}★{% else %}<span class="star-off">★</span>{% endif %}{% endfor %}</span>
+  <span class="visually-hidden">{{ book.rating }} out of 5</span>
+{% else %}
+  <span class="text-muted small">Not rated</span>
+{% endif %}

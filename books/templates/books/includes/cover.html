@@ -1,0 +1,14 @@
+{% comment %}
+  A book's cover image from Open Library's Covers API, or a clean placeholder.
+  Expects a "book" with "cover_id" and "title".
+{% endcomment %}
+{% if book.cover_id %}
+  <img src="https://covers.openlibrary.org/b/id/{{ book.cover_id }}-M.jpg"
+       class="card-img-top book-cover" alt="Cover of {{ book.title }}" loading="lazy">
+{% else %}
+  <div class="card-img-top book-cover no-cover" role="img" aria-label="No cover available">
+    <span class="no-cover-icon" aria-hidden="true">📖</span>
+    <span class="no-cover-title">{{ book.title }}</span>
+    <span class="no-cover-label">No cover</span>
+  </div>
+{% endif %}

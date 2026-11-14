@@ -3,9 +3,36 @@
 {% block title %}My Reading List{% endblock %}
 
 {% block content %}
-{# Temporary placeholder page for Phase 1. Phase 2 replaces it with the real reading list. #}
-<h1 class="h3 mb-3">My Reading List</h1>
-<div class="alert alert-secondary">
-  Your reading list is coming soon. This page is a placeholder until books can be saved.
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 mb-0">My Reading List</h1>
+  {% if books %}
+    <span class="text-muted">{{ books|length }} book{{ books|length|pluralize }}</span>
+  {% endif %}
 </div>
+
+{% if books %}
+  <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-4 g-3">
+    {% for book in books %}
+      <div class="col">
+        <div class="card h-100 shadow-sm">
+          {% include "books/includes/cover.html" %}
+          <div class="card-body">
+            <div class="mb-2">{% include "books/includes/status_badge.html" %}</div>
+            <h2 class="h6 card-title mb-1">{{ book.title }}</h2>
+            <p class="text-muted small mb-2">
+              {{ book.author }}{% if book.first_publish_year %} · {{ book.first_publish_year }}{% endif %}
+            </p>
+            {% include "books/includes/rating_stars.html" %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="alert alert-info">
+    Your reading list is empty.
+    {# The search page is added in Phase 3. #}
+    <a href="/search/" class="alert-link">Search Open Library</a> to add books.
+  </div>
+{% endif %}
 {% endblock %}

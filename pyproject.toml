@@ -18,3 +18,12 @@ dev = [
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py", "tests.py"]
+
+[tool.ruff]
+# Django generates migration files; don't lint or reformat them by hand.
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+# RUF012 flags lists used as class attributes, but that is how Django is configured
+# (for example, ModelAdmin.list_display and Meta.constraints in the official docs).
+ignore = ["RUF012"]

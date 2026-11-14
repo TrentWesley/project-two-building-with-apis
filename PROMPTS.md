@@ -354,3 +354,65 @@ Not included in the reported results: the wrong-password error (step 4), the red
 
 ### Next Steps
 - Phase 2: SavedBook model, admin, and basic reading list.
+
+---
+
+## Session 11: Phase 2, SavedBook Model and Basic Reading List
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- `/implement` Phase 2 of `plans/django-reading-list.md`, following the approved plan exactly, stopping at each `/tdd` RED for approval.
+- Approved each of the three `/tdd` behaviors at RED and GREEN, then asked to finish the remaining Phase 2 work and run all checks.
+
+### Work Completed
+- **`SavedBook` model:** owner `ForeignKey` to Django's `User` (`CASCADE`), `work_key`, `title`, `author`, optional `first_publish_year` and `cover_id`, `status` (Want to Read / Reading / Finished, default Want to Read), optional `rating` (1–5 validators), optional `notes`, `created_at`, and a `UniqueConstraint` on (`user`, `work_key`).
+- **One migration:** `books/migrations/0001_initial.py`, regenerated after each model change so Phase 2 ends with a single initial migration. Applied to the local database.
+- **Admin:** `SavedBook` registered with columns (title, user, status, rating, created_at), filters (status, created_at), and search (title, author, username).
+- **My Reading List (`/books/`):** the Phase 1 placeholder was replaced with a login-required `ListView` showing only the logged-in user's books, newest first, as Layout B cards with a cover image (or a cleaner "No cover" placeholder with a book icon and the title), a status badge (gray/blue/green), the author and year, and star ratings or "Not rated". An empty list shows a friendly message with a link to search (the search page arrives in Phase 3).
+- Card pieces (cover, status badge, stars) are small reusable template includes for later pages.
+
+### TDD (3 behaviors)
+1. **The same user can't save the same work twice, but another user can.** RED: the database saved a duplicate ("DID NOT RAISE IntegrityError"). GREEN: `UniqueConstraint(fields=["user", "work_key"])`.
+2. **A rating must be blank or 1–5.** RED: a rating of 0 passed validation. GREEN: `MinValueValidator(1)` and `MaxValueValidator(5)` on `rating`.
+3. **`/books/` shows only the logged-in user's books.** RED: the placeholder page showed no books. GREEN: a `ListView` whose queryset is filtered by `request.user`.
+
+### Tests
+- 33 tests pass: the 3 TDD tests, 7 more Phase 2 tests, and the 23 earlier tests.
+- The other Phase 2 tests cover: defaults (status, `created_at`, blank rating and notes), deleting a user deletes their books, the empty-list message, newest-first order, the card content (status label, stars, "Not rated", cover URL, "No cover"), staff admin search by username, and regular users blocked from the admin.
+- `ruff check`, `ruff format --check`, `manage.py check`, and `makemigrations --check` all pass.
+
+### Bugs and Fixes
+- **Possible flaky test:** the newest-first test depended on two books getting different `created_at` times when created a split second apart. Fixed by giving them explicit, different timestamps.
+- **Ruff `SIM117`:** combined two nested `with` statements in the uniqueness test (auto-fixed).
+- **Ruff `RUF012` false alarms:** Ruff flagged Django's standard list class attributes (`list_display`, `Meta.constraints`, and the generated migration). Configured Ruff to skip generated migrations and ignore `RUF012`, with comments explaining why, instead of rewriting idiomatic Django code.
+- **Renamed a test:** the Phase 1 test `test_reading_list_placeholder_loads_for_logged_in_user` became `test_reading_list_loads_for_logged_in_user`, because the page is no longer a placeholder (a mechanical rename; its assertions are unchanged).
+
+### Decisions
+- A rating is enforced by field validators (used by forms, the admin, and the API), and uniqueness is enforced by the database itself.
+- Phase 2 shows cards only. The sidebar (Phase 5) and Edit/Delete buttons (Phase 6) come later, as planned.
+
+### Manual Browser Testing Results
+The student tested Phase 2 in the browser (admin superuser plus a second user, `reader2`). These checks passed:
+
+| Check | Result |
+|---|---|
+| Django admin dashboard and SavedBook registration | Passed |
+| Adding books with different statuses and ratings | Passed |
+| Book cards, cover images, and "No cover" placeholders | Passed |
+| Newest-first reading list order | Passed |
+| Duplicate book validation (same user, same work key rejected) | Passed |
+| Rating validation (6 rejected) | Passed |
+| Separate reading lists for admin and `reader2` | Passed |
+| Regular users blocked from the Django admin | Passed |
+| Empty reading list for a new user | Passed |
+| Responsive mobile layout | Passed |
+
+Not included in the reported results: the admin search and filters (steps 5–6) and a different user saving the same work (step 8). These are covered by automated tests (admin search by username, and the uniqueness test's second-user case).
+
+### Phase 2 Checkpoint
+- Phase 2 complete: automated checks pass and manual browser verification was approved by the student.
+- Committed and pushed as the Phase 2 checkpoint.
+
+### Next Steps
+- Phase 3: Search Open Library.

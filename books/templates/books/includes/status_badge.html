@@ -1,0 +1,8 @@
+{% comment %}Reading status badge: Want to Read = gray, Reading = blue, Finished = green.{% endcomment %}
+{% if book.status == "reading" %}
+  <span class="badge text-bg-primary">{{ book.get_status_display }}</span>
+{% elif book.status == "finished" %}
+  <span class="badge text-bg-success">{{ book.get_status_display }}</span>
+{% else %}
+  <span class="badge text-bg-secondary">{{ book.get_status_display }}</span>
+{% endif %}

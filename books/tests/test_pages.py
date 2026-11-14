@@ -31,7 +31,7 @@ def test_reading_list_redirects_anonymous_user_to_login_with_next(client):
 
 
 @pytest.mark.django_db
-def test_reading_list_placeholder_loads_for_logged_in_user(client):
+def test_reading_list_loads_for_logged_in_user(client):
     user = User.objects.create_user(username="reader1", password="Test-only-pass-2026!")
     client.force_login(user)
 

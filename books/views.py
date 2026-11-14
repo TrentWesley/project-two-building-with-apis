@@ -1,10 +1,12 @@
 from django.contrib import messages
 from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.shortcuts import redirect, render
+from django.views.generic import ListView
 
 from .forms import LoginForm, SignUpForm
+from .models import SavedBook
 
 
 def home(request):
@@ -51,7 +53,11 @@ class LogoutWithMessageView(LogoutView):
         return response
 
 
-@login_required
-def book_list(request):
-    """Temporary placeholder for My Reading List (replaced in Phase 2)."""
-    return render(request, "books/book_list.html")
+class BookListView(LoginRequiredMixin, ListView):
+    """My Reading List: only the logged-in user's saved books, newest first."""
+
+    template_name = "books/book_list.html"
+    context_object_name = "books"
+
+    def get_queryset(self):
+        return SavedBook.objects.filter(user=self.request.user).order_by("-created_at")
