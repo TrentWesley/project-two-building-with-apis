@@ -264,3 +264,32 @@ The network error was simulated with a temporary, unreachable `HTTPS_PROXY` sett
 ### Next Steps
 - Phase 0: create `CLAUDE.md`.
 - Phase 1: project skeleton and accounts.
+
+---
+
+## Session 9: Phase 0, CLAUDE.md
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- Asked to begin Phase 0 only: create `CLAUDE.md` from the approved PRD and implementation plan, covering project structure, commands, coding conventions, testing requirements, security rules, and the required skill workflow, in a beginner-friendly way.
+
+### Work Completed
+- Created `CLAUDE.md` with:
+  - the project summary
+  - a table of source documents
+  - the stack, project structure, and durable design rules (model, work key format, editable fields, ownership, shared filter helper, Open Library rules, API with no create and `PUT` disabled, URLs, Layout B)
+  - the commands, coding conventions, and testing requirements
+  - the required skill workflow (`/implement` every phase, `/tdd` at most 3 behaviors per phase)
+  - security rules and documentation/evidence rules
+- Checked `.gitignore`: it already covers `db.sqlite3`, `.venv`, `.env`, `.pytest_cache/`, and `.ruff_cache/`.
+- Reviewed the files for credentials. None were found.
+
+### Decisions
+- `CLAUDE.md` tells future sessions to read the PRD and plan before changing behavior, and to ask when a request conflicts with them.
+- `main.py` (script 1) stays independent and is changed only to fix a real bug.
+- Files are always staged by name, never with `git add .`.
+- The final reflection is written by the student. Claude only helps collect evidence.
+
+### Next Steps
+- Phase 1: project skeleton and accounts (install Django and DRF after verifying Python 3.14 support).
