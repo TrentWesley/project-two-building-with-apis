@@ -47,6 +47,7 @@ A simple, beginner-friendly Python script that:
 - `author_name` is a list. Join multiple authors with `", "`.
 - Missing `title` → `Unknown title`.
 - Missing `author_name` → `Unknown author`.
+- Empty `author_name` list (`[]`) → `Unknown author` (added during `/tdd`).
 
 ## Output: `main()`
 
@@ -97,6 +98,9 @@ Found 1,106 matches. Showing the first 5.
 | Multiple authors | `{"title": "Good Omens", "author_name": ["Terry Pratchett", "Neil Gaiman"]}` | `Good Omens by Terry Pratchett, Neil Gaiman` |
 | Missing author | `{"title": "Dune"}` | `Dune by Unknown author` |
 | Missing title | `{"author_name": ["Frank Herbert"]}` | `Unknown title by Frank Herbert` |
+| Empty author list | `{"title": "Dune", "author_name": []}` | `Dune by Unknown author` |
+
+The empty-author-list test was added during `/tdd`. The original plan only handled a *missing* `author_name` field, but an empty list would have displayed `Dune by ` with nothing after it.
 
 ### Manual checklist (`uv run main.py`)
 
@@ -119,13 +123,14 @@ Found 1,106 matches. Showing the first 5.
 | 2 | Blank input | Strip spaces; if blank, show a message and exit without an API call |
 | 3 | Search parameter | `title=` |
 | 4 | Number of results | `limit=5`, `fields=title,author_name`, plus a total-count line |
-| 5 | Authors | Join with commas; `Unknown author` if missing |
+| 5 | Authors | Join with commas; `Unknown author` if missing or empty |
 | 6 | HTTP library | `requests` (installed with `uv add`) |
 | 7 | Errors | One catch for `RequestException` and `ValueError`; friendly message with details; `timeout=10` |
 | 8 | User-Agent | `CIDM3312-BookSearch/1.0`, with no personal email |
 | 9 | Output wording | As specified above |
 | 10 | Code structure | `main.py` with `search_books`, `format_book`, `main` |
 | 11 | Testing | pytest for `format_book` (via `/tdd`) plus the manual checklist |
+| 12 | Empty author list (added during `/tdd`) | Treat `author_name: []` the same as missing: `Unknown author` |
 
 ## Next Steps
 
