@@ -207,3 +207,32 @@ The network error was simulated with a temporary, unreachable `HTTPS_PROXY` sett
 - Review the planning summary, then commit the planning documents.
 - Run `/to-prd` to create the PRD from these decisions.
 - Run `/prd-to-plan` to create the phased implementation plan, then create `CLAUDE.md`.
+
+---
+
+## Session 7: Writing the PRD
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- Approved the 22 `/grill-me` decisions and two recommendations (an Apply button for sidebar filters, and status counts for the whole reading list), then asked to commit the planning files.
+- `/to-prd` to create the PRD from the approved decisions and assignment requirements.
+- Reviewed the PRD, approved it and two added details, and asked Claude to check it against every assignment requirement before committing.
+
+### Work Completed
+- Created `prd/django-reading-list.md` with the problem statement, solution, 70 user stories, implementation decisions, out-of-scope items, and further notes.
+- Added an **Assignment Requirements Coverage** table that maps every requirement to where the PRD addresses it.
+- During the final check, found and fixed four gaps: SQLite was not named as the database, recording bugs and fixes was missing, screenshots and reflection evidence were only mentioned as out of scope, and keeping `CLAUDE.md` accurate was missing.
+
+### Decisions
+- If a user account is deleted, their saved books are deleted too.
+- Invalid or out-of-range page numbers are handled gracefully, never with a server error.
+- Open Library work keys must match `/works/OL`, then digits, then `W`. Invalid save data gets a friendly error.
+- Django and DRF versions must officially support Python 3.14, verified when installing.
+- The name-only Open Library User-Agent is documented as a known limitation, along with Open Library's rate limits and contact-info guidance.
+- The `/tdd` limit of 3 behaviors per phase is a requirement for the implementation plan.
+- Every phase records actual bugs and fixes in `PROMPTS.md` and captures screenshots (with no tokens or passwords) as evidence for the reflection.
+
+### Next Steps
+- Provide the five required reflection questions before the reflection phase.
+- Run `/prd-to-plan` to create the phased implementation plan, then review it before any coding.
