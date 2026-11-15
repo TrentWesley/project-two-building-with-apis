@@ -302,3 +302,232 @@ def test_detail_without_a_token_gets_401(client, three_books):
 
     assert response.status_code == 401
     assert "Cloud Atlas" not in response.content.decode()
+
+
+# --- Phase 9: PATCH and DELETE ---
+
+
+@pytest.mark.django_db
+def test_patch_updates_status_rating_and_notes(client):
+    """PATCH changes only the three editable fields; book facts stay the same.
+
+    A protected field sent along (title) is ignored, not saved (read-only).
+    """
+    reader = User.objects.create_user(username="reader1", password=TEST_PASSWORD)
+    book = add_book(
+        reader,
+        27448,
+        "The Lord of the Rings",
+        "J.R.R. Tolkien",
+        first_publish_year=1954,
+        cover_id=123,
+    )
+    url = f"{API_LIST_URL}{book.pk}/"
+
+    response = client.patch(
+        url,
+        {"status": "finished", "rating": 5, "notes": "Loved it.", "title": "Hacked"},
+        content_type="application/json",
+        **token_header(reader),
+    )
+
+    assert response.status_code == 200
+    # The response shows the new values...
+    data = response.json()
+    assert data["status"] == "finished"
+    assert data["rating"] == 5
+    assert data["notes"] == "Loved it."
+    # ...and they were really saved.
+    book.refresh_from_db()
+    assert book.status == "finished"
+    assert book.rating == 5
+    assert book.notes == "Loved it."
+    # The Open Library facts and owner did not change.
+    assert book.work_key == "/works/OL27448W"
+    assert book.title == "The Lord of the Rings"
+    assert book.author == "J.R.R. Tolkien"
+    assert book.first_publish_year == 1954
+    assert book.cover_id == 123
+    assert book.user == reader
+
+
+@pytest.mark.parametrize(
+    ("bad_data", "bad_field"),
+    [
+        ({"status": "abandoned"}, "status"),
+        ({"rating": 0}, "rating"),
+        ({"rating": 6}, "rating"),
+        # A valid field sent with an invalid one is not saved either.
+        ({"status": "abandoned", "notes": "Changed notes"}, "status"),
+        ({"rating": 6, "status": "finished"}, "rating"),
+    ],
+)
+@pytest.mark.django_db
+def test_patch_with_invalid_status_or_rating_gets_400_and_changes_nothing(
+    client, bad_data, bad_field
+):
+    """An invalid status or a rating outside 1-5 is a 400 with an error message.
+
+    Regression test (Phase 9 /tdd behavior 2): it passed on its first run, because
+    the serializer already validates using the model's status choices and its 1-5
+    rating validators. It would fail if those rules were removed.
+    """
+    reader = User.objects.create_user(username="reader1", password=TEST_PASSWORD)
+    book = add_book(
+        reader, 1, "Dune", "Frank Herbert", status="reading", rating=3, notes="Good"
+    )
+
+    response = client.patch(
+        f"{API_LIST_URL}{book.pk}/",
+        bad_data,
+        content_type="application/json",
+        **token_header(reader),
+    )
+
+    assert response.status_code == 400
+    # The error names the field that was wrong.
+    assert bad_field in response.json()
+    # Nothing was saved: every value is exactly what it was before.
+    book.refresh_from_db()
+    assert book.status == "reading"
+    assert book.rating == 3
+    assert book.notes == "Good"
+    assert book.title == "Dune"
+
+
+@pytest.mark.django_db
+def test_delete_removes_only_my_book_and_404_for_another_users_book(client):
+    """DELETE removes my own book (204); another user's book is 404 and stays.
+
+    Regression test (Phase 9 /tdd behavior 3): it passed on its first run, because
+    behavior 1's switch to RetrieveUpdateDestroyAPIView also enabled DELETE, and the
+    user-filtered get_queryset() already made other users' books 404.
+    """
+    reader = User.objects.create_user(username="reader1", password=TEST_PASSWORD)
+    other_reader = User.objects.create_user(username="reader2", password=TEST_PASSWORD)
+    my_book = add_book(reader, 1, "My Book")
+    their_book = add_book(
+        other_reader, 2, "Their Book", status="finished", rating=4, notes="Theirs"
+    )
+    my_auth = token_header(reader)
+    their_auth = token_header(other_reader)
+
+    # Deleting my own book works and really removes it.
+    response = client.delete(f"{API_LIST_URL}{my_book.pk}/", **my_auth)
+
+    assert response.status_code == 204
+    assert not SavedBook.objects.filter(pk=my_book.pk).exists()
+    assert SavedBook.objects.filter(pk=their_book.pk).exists()
+
+    # Trying to delete reader2's book is a 404, and the book is untouched.
+    response = client.delete(f"{API_LIST_URL}{their_book.pk}/", **my_auth)
+
+    assert response.status_code == 404
+    assert "Their Book" not in response.content.decode()
+    their_book.refresh_from_db()
+    assert their_book.title == "Their Book"
+    assert their_book.status == "finished"
+    assert their_book.rating == 4
+    assert their_book.notes == "Theirs"
+    assert their_book.user == other_reader
+    # reader2 can still open their book with their own token.
+    assert (
+        client.get(f"{API_LIST_URL}{their_book.pk}/", **their_auth).status_code == 200
+    )
+
+
+# --- Phase 9: methods that are not allowed, and more login/ownership checks ---
+
+
+@pytest.fixture
+def dune(reader):
+    """reader1's book with known values, to prove rejected requests change nothing."""
+    return add_book(
+        reader, 1, "Dune", "Frank Herbert", status="reading", rating=3, notes="Good"
+    )
+
+
+def assert_dune_unchanged(book, owner):
+    book.refresh_from_db()
+    assert book.title == "Dune"
+    assert book.author == "Frank Herbert"
+    assert book.status == "reading"
+    assert book.rating == 3
+    assert book.notes == "Good"
+    assert book.user == owner
+
+
+def test_post_to_the_list_is_not_allowed(client, reader, auth):
+    """There is no create endpoint: books are saved only from the website search."""
+    response = client.post(
+        API_LIST_URL,
+        {"work_key": "/works/OL1W", "title": "New Book", "author": "Someone"},
+        content_type="application/json",
+        **auth,
+    )
+
+    assert response.status_code == 405
+    assert not SavedBook.objects.exists()
+
+
+def test_put_is_not_allowed(client, reader, auth, dune):
+    """PUT is disabled; only PATCH can change a book."""
+    response = client.put(
+        f"{API_LIST_URL}{dune.pk}/",
+        {"status": "finished", "rating": 5, "notes": "Replaced"},
+        content_type="application/json",
+        **auth,
+    )
+
+    assert response.status_code == 405
+    assert_dune_unchanged(dune, reader)
+
+
+def test_patch_without_a_token_gets_401(client, reader, dune):
+    response = client.patch(
+        f"{API_LIST_URL}{dune.pk}/",
+        {"status": "finished"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 401
+    assert_dune_unchanged(dune, reader)
+
+
+def test_delete_without_a_token_gets_401(client, reader, dune):
+    response = client.delete(f"{API_LIST_URL}{dune.pk}/")
+
+    assert response.status_code == 401
+    assert SavedBook.objects.filter(pk=dune.pk).exists()
+
+
+def test_patch_on_another_users_book_gets_404_and_changes_nothing(client, reader, dune):
+    """reader2 cannot change reader1's book, or even learn that it exists."""
+    other_reader = User.objects.create_user(username="reader2", password=TEST_PASSWORD)
+
+    response = client.patch(
+        f"{API_LIST_URL}{dune.pk}/",
+        {"status": "finished", "rating": 1, "notes": "Changed by someone else"},
+        content_type="application/json",
+        **token_header(other_reader),
+    )
+
+    assert response.status_code == 404
+    assert "Dune" not in response.content.decode()
+    assert_dune_unchanged(dune, reader)
+
+
+def test_patch_can_clear_the_rating_and_notes(client, reader, auth, dune):
+    """Rating is optional (null) and notes can be emptied, like on the website."""
+    response = client.patch(
+        f"{API_LIST_URL}{dune.pk}/",
+        {"rating": None, "notes": ""},
+        content_type="application/json",
+        **auth,
+    )
+
+    assert response.status_code == 200
+    dune.refresh_from_db()
+    assert dune.rating is None
+    assert dune.notes == ""
+    assert dune.status == "reading"

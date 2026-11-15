@@ -878,3 +878,80 @@ The student personally tested Phase 8. All checks passed (student-confirmed):
 
 ### Next Steps
 - Phase 9: API update and delete.
+
+---
+
+## Session 18: Phase 9, API Update and Delete
+
+**Date:** November 15, 2026
+
+### Prompts Used
+- `/implement` Phase 9 of `plans/django-reading-list.md`, after re-reading the plan and the relevant documents and reviewing the API views, serializer, authentication, ownership rules, and API tests, stopping at each `/tdd` step for approval.
+- Three `/tdd` behaviors:
+  1. A valid `PATCH` updates only the allowed fields.
+  2. Invalid values are rejected.
+  3. `DELETE` removes only the authenticated user's book.
+- **Conflict raised before any code:** the prompt said protected fields should be "rejected", but the approved plan (Phase 9, behavior 1), PRD story 57, and the decisions doc say Open Library fields are read-only and **ignored**. Two options were offered: **A**, ignore them (the approved design, DRF's built-in `read_only_fields`), or **B**, reject them with 400 (custom serializer code). **The student chose Option A.** Invalid status or rating values still return 400.
+- Approved the behavior 1 test with one adjustment: add `"title": "Hacked"` to the `PATCH` and keep the check that the title is unchanged.
+- Asked for the remaining normal tests (`POST`/`PUT` 405, `PATCH`/`DELETE` without a token 401, `PATCH` on another user's book 404 with the book unchanged), then this documentation, without committing.
+
+### Work Completed
+- **`books/api.py`:** `BookDetailAPIView` changed from `RetrieveAPIView` to `RetrieveUpdateDestroyAPIView`, with `http_method_names = ["get", "patch", "delete", "head", "options"]`. Leaving out `put` makes `PUT` return 405. The user-filtered `get_queryset()` is unchanged, so another user's book is 404 for every method. The docstring was updated.
+- **`books/serializers.py`:** no change. Its existing `read_only_fields` already make DRF ignore Open Library fields, and `ModelSerializer` already applies the model's status choices and 1–5 rating validators.
+- **No settings, URL, or migration changes.** `BookListAPIView` is still a `ListAPIView` (`GET` only), so `POST` to the list returns 405 and there is no create endpoint.
+- **`CLAUDE.md`:** documents `PATCH` and `DELETE`, the ignored read-only fields (Option A), 400 for bad values, 404 for other users' books, 401 without a token for every method, and 405 for `POST` and `PUT`.
+
+### TDD (3 behaviors)
+1. **A valid `PATCH` updates only the allowed fields.** The test sends `{"status": "finished", "rating": 5, "notes": "Loved it.", "title": "Hacked"}` with a real token. RED: `assert 405 == 200`, because the detail view was a `RetrieveAPIView` (`GET` only). GREEN: `RetrieveUpdateDestroyAPIView` with `PUT` left out. The new values are returned and saved, while the title ("The Lord of the Rings"), the other Open Library fields, and the owner are unchanged.
+2. **An invalid status or rating returns 400 and changes nothing** (5 cases: status `"abandoned"`, rating 0, rating 6, and two cases mixing a valid field with an invalid one). **Regression test, not a RED/GREEN cycle:** it passed on its first run, because the serializer already validates with the model's status choices and rating validators from Phase 2. The real error messages are `"abandoned" is not a valid choice.`, `Ensure this value is greater than or equal to 1.`, and `Ensure this value is less than or equal to 5.` The mixed cases prove the valid field isn't saved either.
+3. **`DELETE` removes only the requesting user's book.** **Regression test, not a RED/GREEN cycle:** it passed on its first run, because behavior 1's switch to `RetrieveUpdateDestroyAPIView` also turned on `DELETE`, and the Phase 8 `get_queryset()` already returned 404 for other users' books. Deleting your own book gives 204 and the book is gone. Deleting another user's book gives 404, that book is unchanged, and its owner can still open it with their own token.
+
+No working code was broken to force a failure for behaviors 2 or 3.
+
+### Tests
+- 6 more normal tests in `books/tests/test_api.py` (a `dune` fixture and an `assert_dune_unchanged()` helper prove rejected requests change nothing):
+  - `POST /api/books/` with a token returns 405, and no book is created
+  - `PUT /api/books/<id>/` with a token returns 405, and the book is unchanged
+  - `PATCH` without a token returns 401, and the book is unchanged
+  - `DELETE` without a token returns 401, and the book still exists
+  - `PATCH` on another user's book returns 404, the response doesn't mention the title, and the book is unchanged
+  - `PATCH {"rating": null, "notes": ""}` clears both (200), because the plan allows "rating 1–5 or null"
+- All authenticated tests use real DRF tokens created inside the test. No token value is printed or recorded.
+- All 6 passed on their first run with no application code changes.
+- **Final results: 170 passed, 0 warnings** (157 earlier, plus 13 Phase 9 test cases: 1 + 5 + 1 TDD and 6 normal).
+- `ruff check .` passes, `ruff format --check .` reports all files formatted, `manage.py check` finds no issues, and `makemigrations --check --dry-run` reports no changes.
+
+### Bugs and Fixes
+- No application bugs were found in Phase 9. Every test either reached a real RED (behavior 1) or passed on its first run, for the reasons explained above.
+
+### Decisions
+- **Option A (student-approved):** protected Open Library fields sent in a `PATCH` are ignored, not rejected, as in the approved PRD and plan. They can't be changed either way, and A needs no custom code.
+- `PUT` is disabled through `http_method_names` instead of a custom method, so the view still uses DRF's built-in generic view.
+- Invalid values use DRF's standard 400 response, with field-by-field error messages taken from the model's own rules.
+- Another user's book is 404 (not 403) for every method, so the API never confirms that someone else's book exists.
+
+### Manual Browser Testing Results
+Phase 9 manual verification is complete. All checks passed. Sources:
+- **Student-reported:** the student ran the check in the browser (browsable API or website) or in their own terminal, and reported the result.
+- **Terminal (Claude):** Claude ran the check at the student's request against the student's running dev server. The script read reader4's token from the local database inside the script, and the token was never printed, logged, or saved.
+
+| # | Check | Result | Source |
+|---|---|---|---|
+| 1 | reader4 PATCHes their own book, Dune (ID 21) | Passed: HTTP 200. Dune changed to Finished, 5 stars, notes "Updated via API" | Student-reported |
+| 2 | PATCH with a protected `title` | Passed: HTTP 200, title stayed "Dune" | Student-reported |
+| 3 | PATCH with an invalid status, and with an invalid rating | Passed: HTTP 400 | Student-reported |
+| 4 | GET, PATCH, and DELETE on another user's book | Passed: HTTP 404 | Student-reported |
+| 5 | DELETE reader4's own temporary book, The Hobbit (ID 22) | Passed: HTTP 204, and the website then showed only Dune (ID 21) | Student-reported |
+| 6 | PATCH and DELETE without authentication | Passed: HTTP 401 | Student-reported |
+| 7 | Authenticated PUT to `/api/books/21/` with body `{}` | Passed: HTTP 405. Dune still exists, all 10 fields unchanged | Terminal (Claude) |
+| 8 | Authenticated POST to `/api/books/` with body `{}` | Passed: HTTP 405. No book created (20 saved books before and after, highest id 21), and reader4 still has only Dune (ID 21) | Terminal (Claude) |
+| 9 | Token-authenticated PATCH to `/api/books/21/` with `{"status":"finished","rating":5,"notes":"Updated via API"}` | Passed: HTTP 200 with the expected values, no `user` field, protected fields unchanged. **Note:** Dune already had these values (from check 1), so this request confirmed the response but didn't visibly change anything | Terminal (Claude) |
+
+No screenshots were captured during this session. The plan's suggested `09-api-patch.png` and `09-api-validation-error.png` are not recorded here.
+
+### Phase 9 Checkpoint
+- Phase 9 complete: automated checks pass and manual verification was approved by the student.
+- Committed and pushed as the Phase 9 checkpoint (`feat: allow updating and deleting saved books through the API`).
+
+### Next Steps
+- Phase 10: script 2 (`api_script.py`).

@@ -72,13 +72,22 @@ prototypes/        Throwaway UI prototype kept as evidence (not production code)
   Views never call `requests`. Users see friendly messages, and technical details go to the server log.
 - **API:** `/api/books/` (`GET`) and `/api/books/<id>/` (`GET`, `PATCH`, `DELETE`). **No create, `PUT` disabled.**
   `TokenAuthentication` listed **first**, then `SessionAuthentication`, so unauthenticated requests get 401.
-  Built so far (Phase 8, read-only; `PATCH`/`DELETE` arrive in Phase 9):
+  Built in Phases 8–9:
   - `GET /api/books/`: the user's books through `filter_books()` (`q`, `status`, `sort`), 10 per page in
     DRF's `{count, next, previous, results}` format. `next`/`previous` keep the query parameters.
     A bad `page` gets DRF's standard 404 `{"detail": "Invalid page."}`, never a 500.
-  - `GET /api/books/<id>/`: one of the user's books. Another user's book returns 404.
+  - `GET /api/books/<id>/`: one of the user's books.
+  - `PATCH /api/books/<id>/`: updates any of `status`, `rating`, `notes` (200, returns the updated book).
+    Open Library fields (`work_key`, `title`, `author`, `first_publish_year`, `cover_id`) and `id`/`created_at`
+    are read-only and **silently ignored** if sent (approved design, "Option A": not rejected).
+    An invalid `status` or a `rating` outside 1–5 gets **400** with an error naming the field, and nothing is
+    saved. `rating` may be `null` and `notes` may be `""`.
+  - `DELETE /api/books/<id>/`: removes the user's own book (**204**).
+  - **Ownership:** another user's book returns **404** for `GET`, `PATCH`, and `DELETE`, and is never changed.
+  - **Not allowed (405):** `POST /api/books/` (no create endpoint) and `PUT /api/books/<id>/`
+    (`BookDetailAPIView.http_method_names` leaves out `put`).
   - **Token auth:** clients send `Authorization: Token <key>` (create one with `drf_create_token`).
-    No token or an invalid token gets 401 with `WWW-Authenticate: Token`.
+    No token or an invalid token gets 401 with `WWW-Authenticate: Token`, for every method.
   - **Session auth:** a user logged into the website can use the browsable API with no token.
   - All DRF settings (authentication, `IsAuthenticated`, `PageNumberPagination`, `PAGE_SIZE` 10) live in
     `REST_FRAMEWORK` in `config/settings.py`, not on each view.
@@ -121,7 +130,7 @@ Always use `uv run`, never a bare `python` or `pip`.
 - Keep a **single initial migration** while a phase is uncommitted. Once a migration is committed, add new migrations instead of editing it.
 - Forms get Bootstrap styling from the `BootstrapFormMixin` in `books/forms.py` (`form-select` for dropdowns, `form-control` otherwise). Templates render fields with `templates/includes/form_fields.html`.
 - Owner-only views (edit, delete) look books up with `get_queryset()` returning only the logged-in user's books, so other users' books are 404. Success messages use `SuccessMessageMixin`.
-- API code: `books/serializers.py` (`SavedBookSerializer`: the 10 approved fields, never `user`; only `status`, `rating`, `notes` writable), `books/api.py` (`BookListAPIView`, `BookDetailAPIView`, DRF generic views whose `get_queryset()` starts from the requesting user's books), and `books/api_urls.py` (namespace `api`, included at `/api/`). Read query parameters with `request.query_params`.
+- API code: `books/serializers.py` (`SavedBookSerializer`: the 10 approved fields, never `user`; only `status`, `rating`, `notes` writable), `books/api.py` (`BookListAPIView` is a `ListAPIView`; `BookDetailAPIView` is a `RetrieveUpdateDestroyAPIView` limited to `GET`/`PATCH`/`DELETE`; both have a `get_queryset()` that starts from the requesting user's books), and `books/api_urls.py` (namespace `api`, included at `/api/`). Read query parameters with `request.query_params`.
 - API tests live in `books/tests/test_api.py`. They authenticate with a real DRF `Token` (`token_header()` helper) or `client.force_login()` for session checks.
 - Website tests live in `books/tests/`, use pytest-django's `client` fixture, and use a throwaway test-only password.
 

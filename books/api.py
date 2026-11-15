@@ -27,14 +27,17 @@ class BookListAPIView(generics.ListAPIView):
         )
 
 
-class BookDetailAPIView(generics.RetrieveAPIView):
-    """GET /api/books/<id>/: one of the logged-in user's saved books.
+class BookDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    """One of the logged-in user's saved books at /api/books/<id>/.
 
-    Another user's book is not in get_queryset(), so it returns 404.
-    Read-only for now (PATCH and DELETE come in Phase 9).
+    GET shows it, PATCH changes its status, rating, and/or notes (the serializer
+    ignores read-only Open Library fields), and DELETE removes it.
+    Another user's book is not in get_queryset(), so every method returns 404.
     """
 
     serializer_class = SavedBookSerializer
+    # PUT (replace the whole book) is left out on purpose, so it returns 405.
+    http_method_names = ["get", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
         """Only the requesting user's books."""
