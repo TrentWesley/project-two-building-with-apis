@@ -10,7 +10,42 @@
         {% if user.is_authenticated %}
           <h1 class="h2 mb-3">Welcome back, {{ user.username }}!</h1>
           <p class="text-muted mb-4">Pick up where you left off.</p>
-          <a class="btn btn-primary btn-lg" href="{% url 'books:list' %}">My Reading List</a>
+          {# Counts of this user's own books (from books.filters.status_counts). #}
+          <div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+            <div class="col">
+              <div class="border rounded-3 p-3 h-100">
+                <div id="count-want_to_read" class="fs-2 fw-bold text-secondary">{{ counts.want_to_read }}</div>
+                <div class="small text-muted">Want to Read</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="border rounded-3 p-3 h-100">
+                <div id="count-reading" class="fs-2 fw-bold text-primary">{{ counts.reading }}</div>
+                <div class="small text-muted">Reading</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="border rounded-3 p-3 h-100">
+                <div id="count-finished" class="fs-2 fw-bold text-success">{{ counts.finished }}</div>
+                <div class="small text-muted">Finished</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="border rounded-3 p-3 h-100">
+                <div id="count-all" class="fs-2 fw-bold">{{ counts.all }}</div>
+                <div class="small text-muted">Total Saved</div>
+              </div>
+            </div>
+          </div>
+          {% if counts.all == 0 %}
+            <p class="text-muted mb-4">
+              You haven't saved any books yet. Search Open Library to get started.
+            </p>
+          {% endif %}
+          <div class="d-flex flex-column flex-sm-row justify-content-center gap-2">
+            <a class="btn btn-primary btn-lg" href="{% url 'search' %}">Search Books</a>
+            <a class="btn btn-outline-primary btn-lg" href="{% url 'books:list' %}">My Reading List</a>
+          </div>
         {% else %}
           <h1 class="h2 mb-3">Your personal reading list</h1>
           <p class="lead mb-2">Search millions of books from Open Library and save the ones you care about.</p>

@@ -124,6 +124,8 @@ Always use `uv run`, never a bare `python` or `pip`.
 - Every phase adds tests for its acceptance criteria. Checks that must pass before a phase is done:
   `uv run pytest`, `uv run ruff check .`, `uv run ruff format --check .`, and (from Phase 2)
   `makemigrations --check --dry-run`.
+- When checking page HTML, remember Django escapes only **variables**: text typed directly in a template (quotes, apostrophes) appears as-is, but a variable containing `'` or `"` appears as `&#x27;` / `&quot;`.
+- If a `/tdd` behavior already works when its test is written, keep the test as a **regression test** and say so (docstring and `PROMPTS.md`). Never break working code to force a RED.
 - Report test results honestly. If a test fails, show the output; never weaken a test just to make it pass.
 
 ## Required skill workflow

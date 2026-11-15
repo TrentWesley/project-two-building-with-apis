@@ -725,3 +725,76 @@ Not included in the reported results, but covered by automated tests:
 
 ### Next Steps
 - Phase 7: logged-in home page.
+
+---
+
+## Session 16: Phase 7, Logged-in Home Page
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- `/implement` Phase 7 of `plans/django-reading-list.md`, after re-reading the plan, the PRD, `CLAUDE.md`, `PROMPTS.md`, the home page, the auth views, the model, and the `status_counts` helper, stopping at each `/tdd` step for approval.
+- Approved three `/tdd` behaviors (the student's list; the plan listed two, and the student's version splits "correct counts" from "only my books"):
+  1. Logged-in users see their correct reading status counts.
+  2. Counts exclude books belonging to other users.
+  3. Logged-out visitors see the public home page without private counts.
+- Instruction for behaviors that already worked: keep them as regression tests and document that honestly, without breaking working code to force a RED.
+- Approved the remaining Phase 7 work: the Search Books link, the zero-books message, responsive layout, and tests.
+
+### Work Completed
+- **`home` view:** still public. For logged-in users it passes `status_counts(SavedBook.objects.filter(user=request.user))` to the template, reusing the Phase 5 helper (one query, no new counting logic). Visitors get no counts.
+- **`templates/home.html`** (logged-in part):
+  - four count boxes (Want to Read, Reading, Finished, Total Saved) with ids `count-want_to_read`, `count-reading`, `count-finished`, `count-all`, colored like the status badges (gray, blue, green)
+  - two boxes per row on phones and four on medium screens and up (`row-cols-2 row-cols-md-4`)
+  - "You haven't saved any books yet. Search Open Library to get started." when the user has no books
+  - **Search Books** (`/search/`) and **My Reading List** (`/books/`) buttons, stacked on phones and side by side from the small breakpoint
+  - The welcome message and the whole logged-out part are unchanged.
+- **`CLAUDE.md`:** added two testing notes: Django escapes only variables (not text typed in templates), and a `/tdd` behavior that already works is kept as a documented regression test.
+
+### TDD (3 behaviors)
+1. **Logged-in users see their correct counts** (3 / 2 / 1, total 6, read from the page HTML by a `shown_count()` helper). RED: `assert None == 3`, because the home page had no count boxes. GREEN: the view calls `status_counts()` on the user's own books, and the template shows the four boxes.
+2. **Counts exclude other users' books.** **Regression test, not a RED/GREEN cycle:** it passed on its first run, because behavior 1's view already filtered by the logged-in user. reader1 (1 / 2 / 0, total 3) and reader2 (4 / 0 / 3, total 7) each see only their own numbers. It would fail if the view counted all books (reader1 would see 5 / 2 / 3 / 10).
+3. **Logged-out visitors see the public page with no private counts.** **Regression test, not a RED/GREEN cycle:** it passed on its first run, because behavior 1 put the count boxes only inside the logged-in part of the template. It checks the intro, the Sign Up / Log In links, that no `count-...` boxes exist, and that no username or book titles appear.
+
+No working code was broken to force a failure for behaviors 2 or 3.
+
+### Tests
+- 125 tests pass: 3 TDD tests (behavior 1 RED/GREEN, behaviors 2 and 3 regression), 4 more Phase 7 tests, and the 118 earlier tests.
+- The other Phase 7 tests cover:
+  - a new user seeing four zeros and the friendly message
+  - the message hidden once the user saves a book
+  - the message still shown when only *other* users have books
+  - the Search Books and My Reading List links (and no Sign Up button for logged-in users)
+- The existing Phase 1 home page tests (visitor intro and buttons, logged-in welcome) still pass.
+- `ruff check`, `ruff format --check`, `manage.py check`, and `makemigrations --check` all pass (no model changes).
+
+### Bugs and Fixes
+- **Wrong test expectation (repeat of the Phase 3 lesson):** two new tests expected the apostrophe in "haven't" to appear as `&#x27;`. The text is typed directly in the template, so Django doesn't escape it (only variables are escaped). Fixed the test, not the page, and added the rule to `CLAUDE.md` so it isn't repeated.
+
+### Decisions
+- Reused `status_counts()` instead of counting again on the home page, so Home and the reading-list sidebar always agree.
+- The count boxes are plain bordered boxes, not links. Their colors match the status badges.
+- Search Books is the main (filled) button, because a new user's first step is finding books.
+
+### Manual Browser Testing Results
+The student personally tested Phase 7 in the browser. All checks passed:
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Logged-out visitors see the public home page without private counts | Passed |
+| 2 | Logged-in users see their welcome message and four reading counts | Passed |
+| 3 | Home page counts match the My Reading List sidebar | Passed |
+| 4 | The Search Books button opens the Open Library search page | Passed |
+| 5 | The My Reading List button opens the saved books page | Passed |
+| 6 | Different users see their own reading counts | Passed |
+| 7 | A new user sees four zeros and the empty-list message | Passed |
+| 8 | Saving a book updates the counts and removes the empty-list message | Passed |
+| 9 | At 375px, count boxes show two per row and the buttons stack vertically | Passed |
+| 10 | At 1200px, all four count boxes show in one row and the buttons are side by side | Passed |
+
+### Phase 7 Checkpoint
+- Phase 7 complete: automated checks pass and manual browser verification was approved by the student.
+- Committed and pushed as the Phase 7 checkpoint.
+
+### Next Steps
+- Phase 8: API authentication, list, and detail.

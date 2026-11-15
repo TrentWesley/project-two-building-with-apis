@@ -30,8 +30,12 @@ logger = logging.getLogger(__name__)
 
 
 def home(request):
-    """Public home page."""
-    return render(request, "home.html")
+    """Public home page. Logged-in users also see counts of their own books."""
+    context = {}
+    if request.user.is_authenticated:
+        my_books = SavedBook.objects.filter(user=request.user)
+        context["counts"] = status_counts(my_books)
+    return render(request, "home.html", context)
 
 
 def signup(request):
