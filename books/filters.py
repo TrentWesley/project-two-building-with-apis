@@ -1,6 +1,6 @@
 """Shared search, filter, and sort rules for a user's saved books.
 
-Used by the My Reading List page (and later by the API), so both behave the same.
+Used by the My Reading List page and the API list, so both behave the same.
 """
 
 from django.db.models import Count, Q

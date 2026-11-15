@@ -798,3 +798,83 @@ The student personally tested Phase 7 in the browser. All checks passed:
 
 ### Next Steps
 - Phase 8: API authentication, list, and detail.
+
+---
+
+## Session 17: Phase 8, API Authentication, List, and Detail
+
+**Date:** November 15, 2026
+
+### Prompts Used
+- `/implement` Phase 8 of `plans/django-reading-list.md`, after re-reading `CLAUDE.md`, `PROMPTS.md`, the PRD, the plan, the `SavedBook` model, the `filter_books()` helper, the settings, and the URL configuration, stopping at each `/tdd` step for approval.
+- Approved three `/tdd` behaviors (the same as the plan):
+  1. Unauthenticated API requests (no token or an invalid token) return 401.
+  2. An authenticated user gets a paginated list containing only their own books.
+  3. Another user's book detail returns 404.
+- Approved each test at RED "exactly as written" and each minimum GREEN change.
+- Approved the remaining Phase 8 work: connect the API list to `filter_books()` and add normal tests for search, filtering, sorting, invalid values, pagination links, and bad page numbers.
+- Asked for the Phase 8 documentation (`CLAUDE.md` and this entry) without committing.
+
+### Work Completed
+- **`config/settings.py`:**
+  - added `rest_framework` and `rest_framework.authtoken` to `INSTALLED_APPS`
+  - `REST_FRAMEWORK`: `TokenAuthentication` then `SessionAuthentication`, `IsAuthenticated`, and `PageNumberPagination` with `PAGE_SIZE` 10
+  - `uv run manage.py migrate` applied DRF's own `authtoken` migrations. No new project migration was needed.
+- **`books/serializers.py`** (new): `SavedBookSerializer` (`ModelSerializer`) with `id`, `work_key`, `title`, `author`, `first_publish_year`, `cover_id`, `status`, `rating`, `notes`, `created_at`. It never shows `user`. Everything except `status`, `rating`, and `notes` is in `read_only_fields`.
+- **`books/api.py`** (new):
+  - `BookListAPIView` (`ListAPIView`): starts from `SavedBook.objects.filter(user=request.user)` and passes `q`, `status`, and `sort` to the shared `filter_books()` helper
+  - `BookDetailAPIView` (`RetrieveAPIView`): looks the id up only within the user's own books
+  - Both views are read-only. `PATCH` and `DELETE` are Phase 9.
+- **`books/api_urls.py`** (new, namespace `api`): `books/` (`book-list`) and `books/<int:pk>/` (`book-detail`), included at `/api/` in `config/urls.py`.
+- **`books/filters.py`:** docstring only (now says the helper is used by the website and the API).
+- **`CLAUDE.md`:** the new API files, the two endpoints, token and session authentication, ownership, pagination, and the API test conventions.
+
+### TDD (3 behaviors)
+1. **No token or an invalid token gets 401.** Scaffolding first (installed apps, serializer, list view, URL, and `IsAuthenticated` only), so the test could fail on an assertion. RED: `assert 403 == 401`. DRF's default authentication put Session first, and DRF decides between 401 and 403 from the **first** class. GREEN: list `TokenAuthentication` first, then `SessionAuthentication`. Real responses: no token gives 401 "Authentication credentials were not provided.", and a made-up token gives 401 "Invalid token.", both with `WWW-Authenticate: Token`.
+2. **A token user gets only their books, 10 per page.** reader1 has 12 books and reader2 has 4. RED: `assert isinstance(data_1, dict)` failed, because the API returned a plain JSON list with no pagination. GREEN: `DEFAULT_PAGINATION_CLASS` = `PageNumberPagination` and `PAGE_SIZE` = 10. The test checks `count` 12 (not 16), 10 + 2 books, the `next`/`previous` links, no reader2 titles, and exactly the approved fields.
+3. **Another user's book detail is 404.** The test checks the user's **own** book (200, approved fields) first, so the 404 can only come from the ownership rule and not from a missing URL. RED: `assert 404 == 200`, because `/api/books/<id>/` didn't exist. GREEN: `BookDetailAPIView` with a user-filtered `get_queryset()` and the `book-detail` URL. The 404 response doesn't include the other user's title.
+
+All three were real RED/GREEN cycles. None passed on its first run, so there are no regression-only tests this phase.
+
+### Tests
+- 29 new normal tests in `books/tests/test_api.py`, using the same three books as the website's filter tests:
+  - **Search, filter, and sort** (18 cases): title and author search (ignoring capitals and outer spaces), each status, each sort (`newest`, `oldest`, `title`, `author`), all three combined, a search for another user's book finding nothing, and blank or invalid `q`/`status`/`sort` falling back to all books, newest first. `count` matches each time.
+  - **API matches the website:** the same parameters give the same books in the same order on `/api/books/` and `/books/`.
+  - **Pagination links:** `next` and `previous` keep `q`, `status`, and `sort` and only change `page`.
+  - **Stable order:** 12 books with the same save time each appear exactly once across two pages, ordered by id.
+  - **Bad pages** (`abc`, `0`, `-1`, `999`, `2.5`): DRF's standard 404 `{"detail": "Invalid page."}`, never a 500.
+  - **Session authentication:** a logged-in website user can list books without a token, and the browsable API HTML page loads.
+  - **Detail without a token:** 401, without the book's title.
+- **Final results: 157 passed, 0 warnings** (125 earlier tests, 3 TDD tests, and 29 new tests).
+- `ruff check .` passes, `ruff format --check .` reports all files formatted, `manage.py check` finds no issues, and `makemigrations --check --dry-run` reports no changes.
+
+### Bugs and Fixes
+- **Pagination warning (`UnorderedObjectListWarning`):** after behavior 2, pytest warned that the API list was paginated without an order, so a book could in theory appear on two pages. It was left until after behavior 3 to keep each GREEN change minimal. Fixed when the list started using `filter_books()`, which always orders, with the id as a tie-breaker. Confirmed: 0 warnings, and the API tests also pass with that warning turned into an error.
+- **Two wrong test expectations (my test data, not the code):** two search cases expected `q="an"` to match "Anathem" and "Brave New World", but only "Anathem" contains "an". Both failed (`assert [] == ['Brave New World']` for the combined case). Fixed the tests to use `q="d"`, which really matches "Cloud Atlas" (Cloud, David) and "Brave New World" (World, Aldous). The code was correct and wasn't changed.
+
+### Decisions
+- All DRF settings live in `REST_FRAMEWORK` in `config/settings.py` rather than on each view, so every future API view gets the same login rule, 401 behavior, and pagination.
+- Token is listed first so unauthenticated requests get 401 (with `WWW-Authenticate: Token`) instead of 403. Session is second so the browsable API works for website users.
+- API URLs are in their own `books/api_urls.py` (namespace `api`), keeping the website's `books/urls.py` unchanged.
+- Bad page values use DRF's standard 404 "Invalid page." response, as the PRD allows ("DRF's standard response instead of crashing"). No custom pagination class.
+- The API reads parameters with `request.query_params` (DRF's name for `request.GET`).
+
+### Manual Browser Testing Results
+The student personally tested Phase 8. All checks passed (student-confirmed):
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Logged in as reader4, `GET /api/books/` | Passed: HTTP 200 with one saved book, Dune (ID 21), in DRF's paginated JSON format |
+| 2 | `GET /api/books/21/` (reader4's own book) | Passed: HTTP 200 with Dune's correct details and no `user` field |
+| 3 | Logged in as reader2, `GET /api/books/` | Passed: HTTP 200 with 11 saved books, paginated across two pages |
+| 4 | Logged in as reader4, `GET /api/books/20/` (reader2's book) | Passed: HTTP 404, and no private information was exposed |
+| 5 | Logged out, `GET /api/books/` | Passed: HTTP 401 Unauthorized with `WWW-Authenticate: Token` |
+| 6 | Token authentication: a local PowerShell request with reader4's token | Passed: the request succeeded and returned a book count of 1 (no token value recorded) |
+| 7 | Logged in as reader2, `GET /api/books/?q=Harry&status=want_to_read&sort=title` | Passed: HTTP 200 with 9 matching books |
+
+### Phase 8 Checkpoint
+- Phase 8 complete: automated checks pass and manual verification was approved by the student.
+- Committed and pushed as the Phase 8 checkpoint (`feat: add token-authenticated API for listing saved books`).
+
+### Next Steps
+- Phase 9: API update and delete.

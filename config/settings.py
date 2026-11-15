@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework.authtoken",
     "books",
 ]
 
@@ -101,6 +103,23 @@ AUTH_PASSWORD_VALIDATORS = [
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "books:list"
 LOGOUT_REDIRECT_URL = "home"
+
+
+# Django REST Framework: every API endpoint requires a logged-in user.
+# Token comes first so a request with no login gets 401 (DRF uses the first class
+# to decide between 401 and 403). Session lets website users try the browsable API.
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    # Lists come back 10 at a time as {"count", "next", "previous", "results"}.
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 10,
+}
 
 
 # Messages: use Bootstrap's "danger" color for error messages

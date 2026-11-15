@@ -10,5 +10,6 @@ urlpatterns = [
     path("accounts/logout/", views.LogoutWithMessageView.as_view(), name="logout"),
     path("search/", views.search, name="search"),
     path("books/", include("books.urls")),
+    path("api/", include("books.api_urls")),
     path("admin/", admin.site.urls),
 ]
