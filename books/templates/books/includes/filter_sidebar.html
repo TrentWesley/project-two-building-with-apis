@@ -1,0 +1,39 @@
+{% comment %}
+  Layout B sidebar: one GET form (no JavaScript). Apply starts again at page 1.
+  Needs current_q, current_status, current_sort, status_options, and sort_choices.
+{% endcomment %}
+<form method="get" action="{% url 'books:list' %}" class="card shadow-sm" role="search">
+  <div class="card-body">
+    <label class="form-label small text-muted" for="filter-q">Search title or author</label>
+    <input type="search" class="form-control mb-3" id="filter-q" name="q"
+           value="{{ current_q }}" placeholder="Title or author">
+
+    <fieldset class="mb-3">
+      <legend class="form-label small text-muted mb-1 fs-6">Status</legend>
+      <div class="list-group">
+        {% for option in status_options %}
+          <label class="list-group-item d-flex justify-content-between align-items-center" for="status-{{ option.value|default:'all' }}">
+            <span>
+              <input class="form-check-input me-2" type="radio" name="status"
+                     id="status-{{ option.value|default:'all' }}" value="{{ option.value }}"
+                     {% if option.value == current_status %}checked{% endif %}>
+              {{ option.label }}
+            </span>
+            <span class="badge rounded-pill text-bg-light border">{{ option.count }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <label class="form-label small text-muted" for="filter-sort">Sort by</label>
+    <select class="form-select mb-3" id="filter-sort" name="sort">
+      {% for value, label in sort_choices %}
+        <option value="{{ value }}" {% if value == current_sort %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+
+    <div class="d-grid">
+      <button type="submit" class="btn btn-primary">Apply</button>
+    </div>
+  </div>
+</form>

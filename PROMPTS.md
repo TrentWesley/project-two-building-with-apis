@@ -559,3 +559,86 @@ The student personally tested Phase 4 in the browser. All checks passed:
 
 ### Next Steps
 - Phase 5: search, filter, sort, and paginate the reading list.
+
+---
+
+## Session 14: Phase 5, Search, Filter, Sort, and Paginate My List
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- `/implement` Phase 5 of `plans/django-reading-list.md`, after re-reading `CLAUDE.md`, `PROMPTS.md`, the PRD, the plan, and the existing model, list view, templates, and tests, stopping at each `/tdd` RED and GREEN for approval.
+- Approved three `/tdd` behaviors (the student's list, which reorganizes the plan's search/status/sort behaviors so pagination is also test-driven):
+  1. Q-object search matches title OR author without showing another user's books.
+  2. Invalid status and sort values are handled safely, with an invalid sort defaulting to newest.
+  3. Pagination shows 10 books per page and keeps the active query parameters.
+- Approved the remaining Phase 5 work: the Layout B sidebar, whole-list status counts, the "no matches" message, and the remaining tests.
+
+### Work Completed
+- **`books/filters.py`** (shared helper, to be reused by the API in Phase 8):
+  - `filter_books(queryset, search, status, sort)`: stripped, case-insensitive `Q(title__icontains) | Q(author__icontains)` search; status filter only for `want_to_read`/`reading`/`finished`; sorts `newest` (default), `oldest`, `title`, `author`, each with a `pk` tie-break.
+  - `clean_search`, `clean_status`, `clean_sort`: turn missing, blank, or unknown values into the defaults, so the filter and the sidebar use the same rules.
+  - `status_counts(queryset)`: counts per status plus the total in one query (`aggregate` with filtered `Count`).
+- **`BookListView`:** starts from only the logged-in user's books, applies `filter_books`, then paginates 10 per page with `Paginator.get_page()` (bad `page` values show a real page). Passes the current values, sort choices, whole-list counts, and a URL-encoded `filter_query` (built with `QueryDict`) to the template.
+- **Templates:**
+  - `includes/filter_sidebar.html`: one `GET` form with the search box, status radio buttons (All, Want to Read, Reading, Finished) with count badges, the sort dropdown, and an **Apply** button. It shows the values in use, and Apply starts again at page 1.
+  - `includes/pagination.html`: Bootstrap Previous / page numbers / Next links that keep `q`, `status`, and `sort`. Hidden when there is only one page, and wraps on phones.
+  - `book_list.html`: Layout B. The sidebar is a `col-lg-3` column that stacks above the cards below the large breakpoint, and the cards are one per row on phones. "No books match your filters." (with a Clear filters link) is separate from "Your reading list is empty." The sidebar is hidden when the list is empty, since there is nothing to filter.
+- **`CLAUDE.md`:** added the two new includes and a note that search/filter/sort rules live only in `books/filters.py`.
+
+### TDD (3 behaviors)
+1. **Search matches title OR author, only my books.** RED: `?q=  LE GUIN  ` returned all four of my books, because `q` was ignored. GREEN: `filter_books` with the stripped `Q`-object search, called from `get_queryset()`.
+2. **Invalid status/sort are safe; each valid value works** (12 cases, with explicit save dates a month apart and another user's book that would come first in every order). RED: 6 cases failed (the three status filters, and the `oldest`/`title`/`author` sorts), and the 6 "ignore it, newest first" cases already passed by accident. GREEN: status checked against `SavedBook.Status.values`, a `SORT_ORDERS` dictionary with a `newest` fallback and a `pk` tie-break, and the view's own `order_by` removed.
+3. **10 per page, links keep the filters** (13 matching books, 2 of mine filtered out, and another user's matching book). RED: all 13 matches on one page. GREEN: `paginate_by = 10`, `get_page()` for `?page=abc` and `?page=999`, and the pagination partial built from `filter_query`.
+
+### Tests
+- 92 tests pass: 14 TDD test cases (behavior 2 has 12 cases), 9 more Phase 5 tests, and the 69 earlier tests.
+- The other Phase 5 tests cover:
+  - search, status, and sort combined
+  - status counts covering the whole list even while filtered, and excluding other users' books
+  - "No books match your filters." vs. "Your reading list is empty."
+  - the sidebar keeping submitted values, and showing the defaults for unknown values
+  - page links safely encoding a search containing `&`
+  - the book count showing all matches (12) while the page shows 10
+  - no pagination links with 10 or fewer books
+- `ruff check`, `ruff format --check`, `manage.py check`, and `makemigrations --check` all pass (no model changes).
+
+### Bugs and Fixes
+- **Book count would always say "10 books":** the header counted the cards on the current page (`books|length`). Found while adding pagination. Changed it to the total matching books (`paginator.count`) and added a test.
+- **Django's default pagination returns 404 for bad page numbers:** `ListView` raises a 404 for `?page=abc` or `?page=999`. Behavior 3's test required a real page, so the view uses `Paginator.get_page()` instead.
+- **Sorting lived in two places:** after behavior 1, the newest-first order was still in the view. Moved into the helper in behavior 2, so the API will sort exactly the same way.
+- **Tool problem (not a code bug):** at the start of the session, a shell command meant to update `PROMPTS.md` hung and changed nothing. It was stopped, and the edit was made with the editor.
+
+### Decisions
+- Followed the student's three `/tdd` behaviors instead of the plan's (search / status / sort). The plan's status and sort checks are all inside behavior 2, so no acceptance criterion lost its test.
+- Title and author sorting uses the database's normal text order (capital letters before lowercase). Lowercasing just for sorting was left out to keep things simple.
+- Counts use one database query for the whole list, not one per status.
+- The sidebar form has no `page` field, so Apply always starts at page 1 (a narrower filter might have fewer pages).
+
+### Manual Browser Testing Results
+The student personally tested Phase 5 in the browser. All checks passed:
+
+| # | Check | Result |
+|---|---|---|
+| 1 | The sidebar displays correctly | Passed |
+| 2 | The reading list shows 10 books per page | Passed |
+| 3 | Page 2 displays the remaining book | Passed |
+| 4 | Searching by author works | Passed |
+| 5 | Sorting by title works | Passed |
+| 6 | The no-matches message and Clear filters link work | Passed |
+| 7 | Invalid sort values default to newest | Passed |
+| 8 | Invalid status values default to All | Passed |
+| 9 | Invalid page numbers are handled correctly | Passed |
+| 10 | The mobile layout works at 375px | Passed |
+| 11 | Reading-status counts add up correctly | Passed |
+| 12 | Different users only see their own books and counts | Passed |
+| 13 | Filtering by Finished works correctly | Passed |
+
+Not included in the reported results: the counts staying the same while a filter is applied. This is covered by an automated test (`test_status_counts_cover_my_whole_list_even_while_filtered`).
+
+### Phase 5 Checkpoint
+- Phase 5 complete: automated checks pass and manual browser verification was approved by the student.
+- Committed and pushed as the Phase 5 checkpoint.
+
+### Next Steps
+- Phase 6: edit and delete books.

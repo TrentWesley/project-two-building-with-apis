@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.db import IntegrityError, transaction
+from django.http import QueryDict
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -13,6 +14,14 @@ from django.views.decorators.http import require_POST
 from django.views.generic import ListView
 
 from . import openlibrary
+from .filters import (
+    SORT_CHOICES,
+    clean_search,
+    clean_sort,
+    clean_status,
+    filter_books,
+    status_counts,
+)
 from .forms import LoginForm, SaveBookForm, SignUpForm
 from .models import SavedBook
 
@@ -150,10 +159,59 @@ def save_book(request):
 
 
 class BookListView(LoginRequiredMixin, ListView):
-    """My Reading List: only the logged-in user's saved books, newest first."""
+    """My Reading List: only the logged-in user's books, searched, filtered,
+    sorted (newest first by default), and 10 per page."""
 
     template_name = "books/book_list.html"
     context_object_name = "books"
+    paginate_by = 10
+
+    def paginate_queryset(self, queryset, page_size):
+        """Split the filtered books into pages without ever raising an error.
+
+        Paginator.get_page() shows page 1 for a page value that isn't a number
+        (?page=abc) and the last page for one that's too big (?page=999).
+        """
+        paginator = self.get_paginator(queryset, page_size)
+        page = paginator.get_page(self.request.GET.get("page"))
+        return paginator, page, page.object_list, page.has_other_pages()
+
+    def my_books(self):
+        """Every book the logged-in user saved, and no one else's."""
+        return SavedBook.objects.filter(user=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # The current search, status, and sort, so page links can keep them.
+        filter_query = QueryDict(mutable=True)
+        for name in ["q", "status", "sort"]:
+            value = self.request.GET.get(name, "")
+            if value:
+                filter_query[name] = value
+        context["filter_query"] = filter_query.urlencode()
+
+        # The sidebar shows the values in use (unknown ones become the defaults).
+        context["current_q"] = clean_search(self.request.GET.get("q"))
+        context["current_status"] = clean_status(self.request.GET.get("status"))
+        context["current_sort"] = clean_sort(self.request.GET.get("sort"))
+        context["sort_choices"] = SORT_CHOICES
+
+        # Counts for the user's WHOLE list, so they don't change while filtering.
+        counts = status_counts(self.my_books())
+        status_options = [{"value": "", "label": "All", "count": counts["all"]}]
+        for value, label in SavedBook.Status.choices:
+            status_options.append(
+                {"value": value, "label": label, "count": counts[value]}
+            )
+        context["status_options"] = status_options
+        context["has_any_books"] = counts["all"] > 0
+        return context
 
     def get_queryset(self):
-        return SavedBook.objects.filter(user=self.request.user).order_by("-created_at")
+        # Start from only this user's books, then apply the shared rules.
+        return filter_books(
+            self.my_books(),
+            search=self.request.GET.get("q"),
+            status=self.request.GET.get("status"),
+            sort=self.request.GET.get("sort"),
+        )
