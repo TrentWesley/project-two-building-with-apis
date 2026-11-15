@@ -6,12 +6,15 @@ from .models import SavedBook
 
 
 class BootstrapFormMixin:
-    """Give every field Bootstrap's "form-control" style."""
+    """Give every field Bootstrap's style ("form-select" for dropdowns)."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
-            field.widget.attrs["class"] = "form-control"
+            if isinstance(field.widget, forms.Select):
+                field.widget.attrs["class"] = "form-select"
+            else:
+                field.widget.attrs["class"] = "form-control"
 
 
 class SignUpForm(BootstrapFormMixin, UserCreationForm):
@@ -42,3 +45,25 @@ class SaveBookForm(forms.ModelForm):
     class Meta:
         model = SavedBook
         fields = ["work_key", "title", "author", "first_publish_year", "cover_id"]
+
+
+class EditBookForm(BootstrapFormMixin, forms.ModelForm):
+    """Edit a saved book's reading information.
+
+    Only these three fields are on the form, so any other submitted value
+    (title, author, work key, year, cover, or owner) is ignored.
+    """
+
+    class Meta:
+        model = SavedBook
+        fields = ["status", "rating", "notes"]
+        labels = {"status": "Reading status", "rating": "Rating (1–5)"}
+        help_texts = {
+            "rating": "Optional. 1 is the lowest and 5 is the highest.",
+            "notes": "Optional.",
+        }
+        widgets = {
+            # min/max help the browser; the model's 1–5 validators are the real rule.
+            "rating": forms.NumberInput(attrs={"min": 1, "max": 5}),
+            "notes": forms.Textarea(attrs={"rows": 4}),
+        }

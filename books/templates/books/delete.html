@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Remove {{ book.title }}{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-3">Remove {{ book.title }}?</h1>
+
+<div class="row g-4">
+  <div class="col-12 col-sm-8 col-md-4 col-lg-3">
+    {% include "books/includes/book_summary.html" %}
+  </div>
+
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card shadow-sm border-danger-subtle">
+      <div class="card-body p-4">
+        <p>Remove <strong>{{ book.title }}</strong> from your reading list?</p>
+        <p class="text-muted small">Your status, rating, and notes for this book will be deleted too. This can't be undone.</p>
+        <form method="post">
+          {% csrf_token %}
+          <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-danger">Delete</button>
+            <a href="{% url 'books:list' %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% comment %}
+  Read-only card for one saved book: cover, status, title, author, and year.
+  Used on the edit and delete pages. Expects a "book".
+{% endcomment %}
+<div class="card shadow-sm">
+  {% include "books/includes/cover.html" %}
+  <div class="card-body">
+    <div class="mb-2">{% include "books/includes/status_badge.html" %}</div>
+    <h2 class="h6 card-title mb-1">{{ book.title }}</h2>
+    <p class="text-muted small mb-0">{{ book.author }}</p>
+    <p class="text-muted small mb-0">
+      {% if book.first_publish_year %}First published {{ book.first_publish_year }}{% else %}Year unknown{% endif %}
+    </p>
+  </div>
+</div>

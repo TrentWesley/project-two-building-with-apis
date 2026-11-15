@@ -642,3 +642,86 @@ Not included in the reported results: the counts staying the same while a filter
 
 ### Next Steps
 - Phase 6: edit and delete books.
+
+---
+
+## Session 15: Phase 6, Edit and Delete Books
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- `/implement` Phase 6 of `plans/django-reading-list.md`, after re-reading `CLAUDE.md`, `PROMPTS.md`, the PRD, the plan, and the existing model, views, forms, templates, and tests, stopping at each `/tdd` RED and GREEN for approval.
+- Approved three `/tdd` behaviors:
+  1. Editing status, rating, and notes saves correctly, while the Open Library facts stay unchanged.
+  2. Users cannot edit or delete another user's book (404).
+  3. Deletion requires confirmation and `POST`; `GET` never deletes.
+- Chose Option 1 for behavior 3: write it as a regression test and report honestly that it passed immediately, without breaking working code to force a RED.
+- Approved the remaining Phase 6 work: read-only book info, validation errors, success messages, card buttons, and the remaining tests.
+
+### Work Completed
+- **`EditBookForm`** (`ModelForm` with only `status`, `rating`, `notes`): friendlier labels and help text, a 4-row notes box, and `min`/`max` browser hints on the rating (the model's 1–5 validators are the real rule). `BootstrapFormMixin` now gives dropdowns Bootstrap's `form-select` class.
+- **`EditBookView`** (`LoginRequiredMixin`, `SuccessMessageMixin`, `UpdateView`) at `/books/<id>/edit/` (`books:edit`): only the user's own books, "Updated <title>." on success, redirect to `/books/`. Invalid input shows the form again with field errors and "Please fix the errors below. Nothing was changed."
+- **`DeleteBookView`** (`LoginRequiredMixin`, `SuccessMessageMixin`, `DeleteView`) at `/books/<id>/delete/` (`books:delete`): only the user's own books, a confirmation page on `GET`, deletion only on the CSRF-protected `POST`, "Removed <title>." and redirect to `/books/`.
+- **Templates:**
+  - `includes/book_summary.html`: a read-only card (cover, status badge, title, author, first published year) shared by the edit and delete pages.
+  - `edit.html` and `delete.html`: the book card next to the form (stacked on phones). The delete page explains that the status, rating, and notes will be deleted too, and Cancel is a plain link.
+  - `book_list.html`: Edit and Delete buttons on every card.
+- **`CLAUDE.md`:** added `book_summary.html` to the shared includes, the `form-select` styling rule, and the owner-only `get_queryset()` / `SuccessMessageMixin` convention.
+
+### TDD (3 behaviors)
+1. **Editing changes only status, rating, and notes.** The test posts the three fields plus tampered `title`, `author`, `work_key`, year, cover, and `user` values. RED: the status was still Want to Read, because `/books/<id>/edit/` didn't exist (404). GREEN: `EditBookForm` with only the three fields, and `EditBookView` limited to the user's own books.
+2. **Another user's book returns 404 for edit and delete, `GET` and `POST`, and is never changed; logged-out users go to login** (8 cases). Each 404 case also checks that the owner can open their own page (200), so the 404 comes from the ownership rule, not a missing page. RED: the 4 edit cases already passed (behavior 1's queryset), and the 4 delete cases failed (`assert 404 == 200` and `assert 404 == 302`) because the delete page didn't exist. GREEN: `DeleteBookView` with the same owner-only queryset, the URL, and a basic confirmation page.
+3. **`GET` only shows the confirmation; `POST` deletes.** **This was a regression test, not a RED/GREEN cycle.** It passed on its first run, because Django's built-in `DeleteView`, added in behavior 2's GREEN, already shows a confirmation on `GET` and deletes only on `POST`. No working code was broken to force a failure. The test stays as a guard: if a future change made `GET` delete, it would fail.
+
+### Tests
+- 118 tests pass: 10 TDD test cases (behavior 2 has 8 cases), 16 more Phase 6 tests, and the 92 earlier tests.
+- The other Phase 6 tests cover:
+  - ratings of `0`, `6`, `-1`, and `five` rejected with a form error, with nothing saved
+  - an invalid status rejected, with nothing saved
+  - ratings of 1 and 5 allowed, and the rating and notes optional (and clearable)
+  - the "Updated Dune." and "Removed Dune." messages
+  - the Edit and Delete links on the list cards
+  - the edit page showing the cover, title, author, and year with only three form fields (no inputs for the Open Library facts)
+  - the edit form starting with the current values
+  - the delete page showing the book info and a Cancel link
+  - a missing book ID returning 404
+- `ruff check`, `ruff format --check`, `manage.py check`, and `makemigrations --check` all pass (no model changes).
+
+### Bugs and Fixes
+- **Status dropdown styling:** `BootstrapFormMixin` gave every field `form-control`, which isn't Bootstrap's class for dropdowns. It now uses `form-select` for `Select` widgets. Found when adding the first form with a dropdown.
+- **A delete test that could pass for the wrong reason:** before the delete page existed, another user's delete URL already returned 404 (page not found). An owner control line was added to behavior 2's test so it fails until the ownership rule really exists.
+
+### Decisions
+- One owner-only `get_queryset()` per view, instead of checking the owner inside each method, so `GET` and `POST` are protected the same way.
+- Success messages use Django's `SuccessMessageMixin`, and the text uses the book title.
+- The rating's `min`/`max` HTML attributes are only a browser convenience. The server still rejects anything outside 1–5 (tested by posting `6` directly).
+
+### Manual Browser Testing Results
+The student personally tested Phase 6 in the browser. All checks passed:
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Edit and Delete buttons appear on saved book cards | Passed |
+| 2 | The Edit page displays the correct book information | Passed |
+| 3 | Editing status, rating, and notes saves successfully | Passed |
+| 4 | Saved changes remain when reopening the Edit page | Passed |
+| 5 | The browser rejects a rating above 5 | Passed |
+| 6 | Rating and notes can be cleared | Passed |
+| 7 | The Delete confirmation page displays correctly | Passed |
+| 8 | Cancel does not delete the book | Passed |
+| 9 | Confirming Delete removes the book and updates the counts | Passed |
+| 10 | Another user cannot access my book's Edit page (404) | Passed |
+| 11 | Logged-out users are redirected to login | Passed |
+| 12 | The Edit page displays correctly at 375px | Passed |
+| 13 | The Delete page displays correctly at 375px | Passed |
+
+Not included in the reported results, but covered by automated tests:
+- **Server-side rating check:** the reported check was the browser's own `max="5"` limit. The server rejecting a rating of 6 that gets past the browser is covered by `test_invalid_rating_shows_error_and_changes_nothing` (`0`, `6`, `-1`, `five`).
+- **Another user's Delete page:** the reported 404 check was for the Edit page. The Delete page (and `POST` to both pages) returning 404 is covered by `test_another_users_book_returns_404_and_is_not_changed`.
+
+### Phase 6 Checkpoint
+- Phase 6 complete: automated checks pass and manual browser verification was approved by the student.
+- Committed and pushed as the Phase 6 checkpoint.
+
+### Next Steps
+- Phase 7: logged-in home page.

@@ -5,13 +5,14 @@ from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
+from django.contrib.messages.views import SuccessMessageMixin
 from django.db import IntegrityError, transaction
 from django.http import QueryDict
 from django.shortcuts import redirect, render
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
-from django.views.generic import ListView
+from django.views.generic import DeleteView, ListView, UpdateView
 
 from . import openlibrary
 from .filters import (
@@ -22,7 +23,7 @@ from .filters import (
     filter_books,
     status_counts,
 )
-from .forms import LoginForm, SaveBookForm, SignUpForm
+from .forms import EditBookForm, LoginForm, SaveBookForm, SignUpForm
 from .models import SavedBook
 
 logger = logging.getLogger(__name__)
@@ -215,3 +216,41 @@ class BookListView(LoginRequiredMixin, ListView):
             status=self.request.GET.get("status"),
             sort=self.request.GET.get("sort"),
         )
+
+
+class EditBookView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+    """Edit the status, rating, and notes of one of the logged-in user's books.
+
+    Invalid input (for example a rating of 6) shows the form again with errors
+    and changes nothing.
+    """
+
+    form_class = EditBookForm
+    template_name = "books/edit.html"
+    context_object_name = "book"
+    success_url = reverse_lazy("books:list")
+
+    def get_queryset(self):
+        # Only the user's own books can be found, so anyone else's book is a 404.
+        return SavedBook.objects.filter(user=self.request.user)
+
+    def get_success_message(self, cleaned_data):
+        return f"Updated {self.object.title}."
+
+
+class DeleteBookView(LoginRequiredMixin, SuccessMessageMixin, DeleteView):
+    """Confirm, then remove one of the logged-in user's books.
+
+    GET shows the confirmation page; only the confirmed POST deletes.
+    """
+
+    template_name = "books/delete.html"
+    context_object_name = "book"
+    success_url = reverse_lazy("books:list")
+
+    def get_queryset(self):
+        # Only the user's own books can be found, so anyone else's book is a 404.
+        return SavedBook.objects.filter(user=self.request.user)
+
+    def get_success_message(self, cleaned_data):
+        return f"Removed {self.object.title}."

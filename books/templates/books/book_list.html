@@ -28,6 +28,10 @@
                   </p>
                   {% include "books/includes/rating_stars.html" %}
                 </div>
+                <div class="card-footer bg-white border-0 pt-0 pb-3 d-flex gap-2">
+                  <a href="{% url 'books:edit' book.pk %}" class="btn btn-outline-primary btn-sm flex-fill">Edit</a>
+                  <a href="{% url 'books:delete' book.pk %}" class="btn btn-outline-danger btn-sm flex-fill">Delete</a>
+                </div>
               </div>
             </div>
           {% endfor %}
