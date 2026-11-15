@@ -1173,3 +1173,353 @@ Dune (ID 21) ends as `finished`, as it was before the live test. Afterwards the 
 
 ### Next Steps
 - Phase 11: documentation and final check.
+
+---
+
+## Session 20: Phase 11, README (in progress)
+
+**Date:** November 15, 2026
+
+### Prompts Used
+- `/implement` Phase 11, **review only**: read the plan, PRD, `CLAUDE.md`, `README.md`, and `PROMPTS.md`, then report what's complete, what's missing, a beginner-friendly checklist, and what to do first. No edits.
+  - **Findings:**
+    - `README.md` held only a heading.
+    - `docs/screenshots/` didn't exist and no screenshots had been captured (the plan suggests 28).
+    - The final regression checklist and script 2's live error checks hadn't been run.
+    - The five reflection questions weren't in the repository.
+  - **Recommendation:** write the README first, so the fresh-database regression run tests it and produces the screenshots in one pass.
+- The student approved starting with the README: work **only** on `README.md` and `PROMPTS.md`, verify every command against the actual project, use placeholders only, include PowerShell and Bash examples, and don't change code or tests, touch `db.sqlite3`, create screenshots, write the reflection, or commit.
+- Next prompt: **review `README.md` only** against the actual project. Look for broken commands, missing steps, confusing PowerShell instructions, bad links or Markdown, claims that don't match the code, and exposed secrets, with special attention to the secret-key command's syntax. Fix only confirmed mistakes.
+- Next prompt: **database backup only**. Make a timestamped, consistent backup of `db.sqlite3` outside the repository and verify it. Don't touch the original.
+- Next prompt: **propose** a separate, empty regression database without changing tracked code or the original database.
+- Next prompt: the student approved the proposal. **Create the separate regression database only** (folder, settings file with a safety check, migrations), verify both databases, and don't create users or books yet.
+- Next prompt: **prepare pagination test data only** in the regression database. Verify the active database first, give user `regression_a` exactly 12 books using clearly labeled synthetic data with unique, format-valid work keys, and don't modify the existing Dune record or `regression_b`'s records.
+- Next prompt: record the **student-reported browser regression results** in this entry, as student-reported manual checks (not checks Claude ran). Identify the 11 synthetic pagination books as regression-only test data, and don't claim any screenshots are in the repository.
+- Correction prompt: the student clarified that only **Title (A–Z)** sorting was tested in the browser. The student had first reported "A-Z and Z-A", and the app has no Z–A option. Row 9 was corrected and the clarification note removed.
+- Next prompt: **final automated regression and API verification only**. Run pytest, Ruff, the Django check, and the migration check. Review which behaviors the automated tests cover and which still need manual checks. Verify the original database is unchanged, with no code, test, database, or token changes and no persistent server.
+- Next prompt: record the **student-reported manual tests of script 1** (`main.py`): a normal search, a no-results search, and blank input. Make clear the student ran them in PowerShell, and don't claim the network-error case was tested.
+- Next prompt: **prepare the final screenshot checklist only**. Review the PRD, the plan, and any assignment or reflection requirements. Propose the minimum useful screenshots with filenames under `docs/screenshots/`, split into required and optional, note which can come from the regression database, and record the plan. No fake screenshots, and no code, test, or database changes.
+- Next prompt: the student said the professor's five `REFLECTION.md` questions are now available. The question text itself wasn't included in the prompt; the student summarized **Question 5** as requiring **before-and-after screenshots of a bug or usability change**, and said the 19 general screenshots are **not** required. Correct the screenshot plan, review this log for real bugs and usability changes (especially changes the student requested after manual testing), pick the best genuine example for Question 5, and say whether real BEFORE screenshots exist.
+- Next prompt: the student chose the sidebar Apply-button example and **captured two screenshots themselves** into `docs/screenshots/`. Verify them and document them, without writing `REFLECTION.md`.
+
+### Work Completed
+- **`README.md`** (rewritten from the single heading). Sections:
+  1. Project overview and features
+  2. Requirements (Python 3.14, uv, Git)
+  3. Setup: clone, `uv sync`, `migrate`, `createsuperuser`
+  4. Running the website, with a table of the main URLs
+  5. Environment variables: a table of all five, their defaults, the production safety error, PowerShell and Bash examples, and how to generate a secret key
+  6. API tokens: why they're secret, loading a token privately without displaying it, the `drf_create_token` alternative (warned that it prints the token), replacing a token with `-r`, and removing it afterwards
+  7. Running script 1 and script 2, including the list of friendly errors script 2 handles
+  8. API: the endpoints, the list options, read-only fields, the 401/404/400/405 responses, token and session login, and PowerShell and curl examples
+  9. Tests and code quality: pytest, Ruff, the migration check, and the system check
+  10. Open Library attribution, rate limits, and the name-only User-Agent limitation
+  11. Deployment security notes: HTTPS, a strong secret key, `DEBUG=False`, `ALLOWED_HOSTS`, static files, and a production server and database
+  12. Project layout
+- **Placeholders only:** `<your-username>`, `<your-secret-key>`, and `<your-token>`. No real tokens, passwords, or secret keys.
+
+### Verification of README Commands (Terminal, Claude)
+- **Versions:** `.python-version` is `3.14`; installed are Python 3.14.7, Django 6.1.3, DRF 3.18.3, `requests` 2.34.2, and uv 0.12.7.
+- **Commands:** every `manage.py` command the README uses exists (`migrate`, `createsuperuser`, `runserver`, `shell`, `check`, `makemigrations`, `drf_create_token`). `drf_create_token --help` confirms the `-r` (regenerate) option.
+- **Secret key generator:** works. Only the length (50) was printed, never the key.
+- **Private token loading (`shell -v 0` with `get_or_create`):** captured a 40-character token for reader4 without displaying it. The token count stayed at 1 before and after, so nothing in the database changed.
+- **Settings defaults match `config/settings.py`:**
+  - `DJANGO_DEBUG` defaults to `"True"`, and only the exact text turns debug on.
+  - `DJANGO_ALLOWED_HOSTS` defaults to `localhost,127.0.0.1`.
+  - With `DJANGO_DEBUG=False` and no key, Django raises `ImproperlyConfigured: Set the DJANGO_SECRET_KEY environment variable when DJANGO_DEBUG is False.`
+  - With a throwaway key, `check` passes.
+- **Facts match the code:**
+  - script 1 asks for 5 results
+  - the Django search service uses limit 10, User-Agent `CIDM3312-BookSearch/1.0`, and a 10-second timeout
+  - the admin has list, filters, and search
+  - the footer links to Open Library
+- **Secrets scan of `README.md`:** no token-like values, no development key, and no test password.
+
+### Tests
+- `uv run pytest`: **198 passed** (no code or test changes).
+- `ruff check .` passes, and `ruff format --check .` reports all files formatted.
+
+### README Review Corrections
+The PowerShell commands were tested in real Windows PowerShell 5.1, not only in Bash. Values were never displayed, only their lengths.
+- **The secret-key command itself is valid:** it produces a 50-character key in both PowerShell and Bash.
+- **Bug 1 (PowerShell quoting):**
+  - **Problem:** the example `$env:DJANGO_SECRET_KEY = "<your-secret-key>"` used double quotes. Django's key alphabet includes `$` (checked in `get_random_secret_key`: `abc...!@#$%^&*(-_=+)`), and PowerShell expands `$name` inside double quotes. A test showed `"abc$def"` becoming `abc` (3 characters instead of 7), so a pasted real key would have been silently corrupted.
+  - **Fix:** the PowerShell examples use single quotes (now 7 characters), with a one-line explanation. A command that generates a key straight into `DJANGO_SECRET_KEY` was also added for PowerShell and Bash. It never displays the key, and both versions were tested (length 50).
+- **Bug 2 (claim didn't match the code):**
+  - **Problem:** the README said only the search module and script 1 contact Open Library. In fact `books/templates/books/includes/cover.html` loads cover images in the browser from `covers.openlibrary.org`.
+  - **Fix:** the text now says "on the Python side" and adds a bullet about browser-loaded covers and the placeholder.
+- **Missing step:** with a misspelled username, the private token command leaves `READING_LIST_TOKEN` empty. Tested: `length 0`. The README now explains what `length 0` means (misspelled, case-sensitive username, or `migrate` not run).
+- **Checked and correct (no change):**
+  - every `uv run` command
+  - `drf_create_token -r` (the DRF source deletes the old token, creates a new one, and prints it)
+  - the anchor links
+  - the footer claim (every page template extends `base.html`)
+  - balanced code fences (42 fence lines)
+  - no secrets
+
+### Database Backup and Regression Database Preparation (Terminal, Claude)
+- **Backup:** `C:\Users\tswes\cidm3312\db-backups\db-before-final-regression-20261115-032150.sqlite3`
+  - outside the repository, made with SQLite's online backup API with the original opened read-only
+  - `PRAGMA integrity_check` returned `ok`
+  - users 5/5, saved books 20/20, tokens 1/1, and migrations 23/23 match the original
+  - the original's SHA-256 and modified time were unchanged
+- **Why a separate settings file:** `config/settings.py` hard-codes `NAME: BASE_DIR / "db.sqlite3"`, and there's no environment override for the database. To avoid changing tracked code, the regression run uses a settings file **outside the repository**.
+  - **Folder:** `C:\Users\tswes\cidm3312\regression-test\`
+  - **`regression_settings.py`:** imports everything from `config.settings` and overrides only `DATABASES` (`regression.sqlite3` in that folder). A safety check raises `RuntimeError` if the database file name is ever `db.sqlite3`.
+  - **Activated per terminal** with `PYTHONPATH` set to that folder and `DJANGO_SETTINGS_MODULE=regression_settings`. `manage.py` uses `setdefault`, so the variable wins. The README's commands then work unchanged.
+- **Active database check:** with the variables set, `settings.DATABASES['default']['NAME']` printed `C:\Users\tswes\cidm3312\regression-test\regression.sqlite3`.
+- **Migrations:** `uv run manage.py migrate` applied all 23 migrations (`contenttypes`, `auth`, `admin`, `authtoken`, `books.0001_initial`, `sessions`), all `OK`. `showmigrations --plan` lists 23 applied and 0 unapplied.
+- **Regression database counts:** 0 users, 0 saved books, 0 tokens.
+- **Original database:** with the variables removed, the active path is `...\project-two-building-with-apis\db.sqlite3`. Read-only counts: 5 users, 20 saved books. SHA-256 (starting `4f2d3448465f33b8`) and modified time (`2026-11-15 03:08:16`) are identical to before, so it's **unchanged**.
+- `git status` shows only `README.md` and `PROMPTS.md`. Nothing in the regression folder is inside the repository.
+
+### Regression Test Data (Synthetic; Regression Database Only)
+- **Before this step (student-created):** users `regression_a` and `regression_b` (neither is staff), created in the regression database by the student. `regression_a` had **Dune** (ID 1, `reading`). `regression_b` had its own **Dune** (ID 3, `finished`). ID 2 doesn't exist (presumably deleted during the student's testing).
+- **Script:** `C:\Users\tswes\cidm3312\regression-test\seed_pagination_books.py`, outside the repository, run through `uv run manage.py shell` with the regression variables set.
+  - The PowerShell command first checked that Django's active database was exactly `C:\Users\tswes\cidm3312\regression-test\regression.sqlite3`. The script checks again and stops if the database is anything else.
+  - It refuses to run if `regression_a` already has more than 12 books.
+  - It adds the books in one transaction and calls `full_clean()` on each one.
+- **Added 11 SYNTHETIC books for `regression_a`** (IDs 4–14). These are test data, not real books:
+  - titles `[Synthetic Test] Pagination Book 01` to `11`, author `Synthetic Test Author`
+  - work keys `/works/OL900000001W` to `/works/OL900000011W`: the valid `/works/OL<digits>W` format, chosen far above real Open Library IDs
+  - no cover (the placeholder shows), and statuses rotating `reading` / `finished` / `want_to_read`
+- **Results (Terminal, Claude):**
+  - `regression_a`: **12 books** (Dune plus 11 synthetic). By status: 5 `reading`, 4 `finished`, 3 `want_to_read`. That's enough for a second page (10 per page) and for the status filters.
+  - `regression_b`: **1 book**, with its records identical before and after.
+  - `regression_a`'s Dune is identical before and after.
+- **Original `db.sqlite3` untouched:** SHA-256 still starts `4f2d3448465f33b8`, the modified time is still `2026-11-15 03:08:16`, it still has 5 users and 20 saved books, and it contains 0 synthetic titles.
+
+### Final Regression: Browser Results (Student-Reported)
+**Source:** all results in this section are **student-reported**. The student ran them in the browser against the **regression database** (`regression-test\regression.sqlite3`, through `regression_settings`). Claude didn't run or observe these checks.
+
+**Test data:**
+- users `regression_a` and `regression_b`, created by the student
+- the 11 `[Synthetic Test] Pagination Book NN` records (IDs 4–14, author `Synthetic Test Author`, work keys `/works/OL900000001W`–`/works/OL900000011W`). They are **regression-only synthetic test data**, added by Claude only to give `regression_a` 12 books for the pagination checks. They exist only in the regression database, never in the original `db.sqlite3`.
+
+| # | Area | Check | Result |
+|---|---|---|---|
+| 1 | Accounts | Sign up, with automatic login | Passed |
+| 2 | Home | A new user's home counts are all zero | Passed |
+| 3 | Open Library | Searching for "Dune" returns results | Passed |
+| 4 | Save | Saving a book works | Passed |
+| 5 | Edit | Editing status, rating, and notes works | Passed |
+| 6 | Reading list | Searching by title and by author works | Passed |
+| 7 | Reading list | Status filter, and combined filters, work | Passed |
+| 8 | Reading list | No-results messages appear | Passed |
+| 9 | Reading list | Title (A–Z) sorting | Passed (student-reported) |
+| 10 | Delete | The confirmation page and deletion work | Passed |
+| 11 | Ownership | Two users have separate reading lists | Passed |
+| 12 | Ownership | Both users can save Dune independently | Passed |
+| 13 | Ownership | Editing one user's Dune doesn't affect the other's | Passed |
+| 14 | Save | Duplicate-save protection works | Passed |
+| 15 | Pagination | Pagination works with 12 books | Passed |
+| 16 | Pagination | Search and sort are kept across pages | Passed |
+| 17 | Access | Logged-out users are redirected to login | Passed |
+
+**Not covered in this report** (still open on the final regression checklist):
+- Author (A–Z), Newest saved, and Oldest saved sorting (not tested manually; automated tests cover all four sorts)
+- the Open Library outage alert, and a tampered work key
+- edit validation (rating outside 1–5), and another user's edit/delete URLs giving 404
+- phone-width layout
+- the API checks and both scripts against the regression server
+- the admin, including non-staff access
+- following the README step by step
+
+**Screenshots:** none are recorded in the repository for these checks (`docs/screenshots/` doesn't exist yet).
+
+### Final Automated Regression (Terminal, Claude)
+These were run with the **normal settings**: `DJANGO_SETTINGS_MODULE` was not set. pytest uses its own temporary test database, so neither real database is used.
+
+| Command | Result |
+|---|---|
+| `uv run pytest` | **198 passed** |
+| `uv run ruff check .` | All checks passed |
+| `uv run ruff format --check .` | 55 files already formatted |
+| `uv run manage.py check` | No issues (0 silenced) |
+| `uv run manage.py makemigrations --check --dry-run` | No changes detected |
+
+**Tests per file:**
+
+| File | Tests | File | Tests |
+|---|---|---|---|
+| `test_api.py` | 45 | `test_api_script.py` | 28 |
+| `test_edit_delete.py` | 26 | `test_list_filters.py` | 23 |
+| `test_save_book.py` | 14 | `test_search_page.py` | 13 |
+| `test_auth.py` | 11 | `test_openlibrary.py` | 9 |
+| `test_home.py` | 7 | `test_main.py` | 5 |
+| `test_pages.py` | 5 | `test_models.py` | 4 |
+| `test_reading_list.py` | 4 | `test_admin.py` | 2 |
+| `test_settings.py` | 2 | | |
+
+**Covered by automated tests** (from reviewing the test names and contents):
+- **API authentication:** 401 for no token and an invalid token, on the list and the detail; 401 for `PATCH` and `DELETE` without a token; session login and the browsable API page.
+- **Ownership:**
+  - **API:** 404 for another user's book on `GET`, `PATCH`, and `DELETE`, with the other user's book unchanged or not deleted, and a detail 404 that doesn't leak the title.
+  - **Website:** 404 on another user's edit and delete pages; the reading list shows only your own books; a submitted `user` ID can't change the owner.
+- **Endpoints:** `GET` list (paginated, 10 per page, `count`/`next`/`previous`/`results`), `GET` detail, `PATCH` (allowed fields only, read-only fields ignored, rating and notes can be cleared), `DELETE` (204), `POST` 405, `PUT` 405.
+- **Validation:**
+  - **API:** an invalid status or a rating of 0 or 6 gives 400 and nothing is saved.
+  - **Website:** an invalid rating or status shows an error and nothing changes; ratings 1 and 5 are accepted.
+  - **Model:** ratings must be blank or 1–5.
+- **Pagination, filtering, sorting:**
+  - **Website and API:** title and author search, each status, all four sorts, combined filters, invalid or blank values falling back to the defaults, and links that keep the parameters.
+  - **API only:** bad page values give DRF's 404 "Invalid page.", never a 500, and books saved at the same moment have a stable order.
+- **Open Library service and search page:**
+  - **Service:** the approved request, cleaned results, and network, HTTP, and bad-response errors turned into a friendly error.
+  - **Search page:** blank search (no API call), the outage alert plus a log entry, results with placeholders, singular wording, no results, the stripped search term, and login required.
+- **Saving:** save, duplicates (including the database rule), an invalid work key, an invalid year, login and `POST` required, an unsafe `next`, and different users saving the same work.
+- **Accounts and pages:** sign-up and login flows, safe and unsafe `next`, a failed login, `POST`-only logout, redirects for logged-in users, home counts, and settings refusing to load without a secret key when `DEBUG` is off.
+- **Admin:** staff can search saved books; regular users can't open the admin.
+- **Script 2 (28 tests):**
+  - missing token, a successful run, 404, invalid ID or status (no `PATCH`), and an empty list
+  - 401, other 4xx, and 500 on the list and on the `PATCH`
+  - connection error, timeout, and invalid JSON
+  - the URL override, and a book not on the first page
+- **Script 1 (5 tests):** **only `format_book()`** (one or more authors, a missing author or title, an empty author list).
+
+**Still needs manual verification:**
+- **Script 1's `main()` has no automated tests:** a normal search, no results, blank input, and a network error. This follows the Phase 0 decision to keep script 1 simple and not mock it, so these are manual-only. *Update:* the student later reported manual passes for the normal search, no results, and blank input (see "Script 1 Manual Tests" below). The network-error case is still untested.
+- Script 2's live error messages against a real server: a wrong token, the server stopped, ID `abc`, another user's ID, status `done`, and a user with no books. These are covered by mocked tests but not run live.
+- Things automated tests can't see: phone-width layout and visual consistency, cover images actually loading from Open Library, and the browsable API's forms in a real browser.
+- Real Open Library behavior: tests always fake it. That includes a live outage (the plan's proxy method) and a tampered work key typed into the browser.
+- Following the README step by step.
+- The remaining manual regression items listed above: the API and scripts against the regression server, and the admin in the browser.
+
+**Databases unchanged:**
+- Original `db.sqlite3`: SHA-256 still starts `4f2d3448465f33b8`, modified `2026-11-15 03:08:16`, 5 users, 20 saved books.
+- Regression database: SHA-256 still starts `2a3f3d0ce23a24be`, the same before and after.
+- No server was started, and no token was created or shown.
+
+### Script 1 Manual Tests (Student-Reported)
+**Source:** **student-reported**. The student ran these in **PowerShell** with `uv run python main.py`. Claude didn't run or observe them. Script 1 doesn't use the database or a token, and it calls the live Open Library API.
+
+| # | Check | Input | Result |
+|---|---|---|---|
+| 1 | Normal search | `Dune` | Passed: `Found 21,110 matches` and showed the first five books with titles and authors |
+| 2 | No-results search | `xyznonexistentbook123456789` | Passed: a no-books-found message, with no crash |
+| 3 | Blank input | an empty line | Passed: `Please enter a book title.` |
+
+- The match count (21,110) is the live Open Library total at the time of the test, and will change over time.
+- **Not manually tested:** script 1's **network-error** case (the "could not reach Open Library" message). It has no automated test either, so it remains unverified.
+- `uv run python main.py` and the README's `uv run main.py` run the same script.
+
+### Proposed Screenshot Plan (Not Captured Yet)
+**No screenshots exist yet**, and `docs/screenshots/` hasn't been created. This is a plan only.
+
+> **Correction (after the student's clarification of the professor's requirements):** the professor's only screenshot requirement is in reflection **Question 5**: **before-and-after screenshots showing a bug or usability change** (see "Reflection Question 5 Evidence" below). The 19-screenshot list below is **optional** general evidence from the PRD's suggestions, **not** required by the professor. The word "Required" in that list now means "suggested by the PRD/plan" only.
+
+**Basis for the original list (now optional):**
+- The course's own assignment and reflection instructions (including the five reflection questions) are **not in the repository**.
+- So "required" means required by the approved **PRD evidence list** (Further Notes: home logged out and in, sign-up and login, search results, no results, and the error alert, save and duplicate, the reading list with search, filter, sort, and pagination, edit and delete, another user's 404, the browsable API, a 401 without a token, both scripts running) and the **Phase 11 plan** ("final passing check output").
+- Filenames follow the plan's per-phase names where they exist.
+
+**PRD-suggested, optional (18):**
+
+| # | File | Shows | Source |
+|---|---|---|---|
+| 1 | `01-home-logged-out.png` | Home intro with Sign Up / Log In | Regression server, logged out |
+| 2 | `01-signup.png` | Sign-up form (password fields masked) | Regression server (the form only; no need to submit) |
+| 3 | `01-login-error.png` | Failed login error message | Regression server, wrong password |
+| 4 | `07-home-logged-in.png` | Welcome and the four status counts | Regression, `regression_a` |
+| 5 | `03-search-results.png` | Open Library results for "Dune" with covers | Regression server + live Open Library |
+| 6 | `03-search-no-results.png` | No-results message | Regression server + live Open Library |
+| 7 | `03-search-unavailable.png` | Friendly outage alert | Regression server restarted with a bad proxy (needs setup, below) |
+| 8 | `04-save-success.png` | Success message after saving a new book | Regression (writes one book; regression only) |
+| 9 | `04-duplicate-message.png` | Duplicate-save message | Regression, saving the same book again |
+| 10 | `05-list-filtered-sorted.png` | Reading list with a search or status filter and Title (A–Z), sidebar counts | Regression, `regression_a` (12 books) |
+| 11 | `05-list-page-2.png` | Page 2 with the filter and sort kept in the URL | Regression, `regression_a` (includes clearly labeled synthetic books) |
+| 12 | `06-edit-page.png` | Edit page: read-only book info plus status, rating, and notes | Regression |
+| 13 | `06-delete-confirm.png` | Delete confirmation page | Regression (cancel, or delete a throwaway book) |
+| 14 | `06-other-user-404.png` | 404 when `regression_b` opens `regression_a`'s edit URL | Regression, both users |
+| 15 | `08-browsable-api-list.png` | `/api/books/` browsable API, paginated, logged in | Regression, `regression_a` (session login, no token) |
+| 16 | `08-api-401.png` | `/api/books/` while logged out: "Authentication credentials were not provided." | Regression server, logged out (no token involved) |
+| 17 | `10-script1-search.png` | `uv run main.py` searching "Dune" | No database (live Open Library) |
+| 18 | `10-script2-success.png` | `uv run api_script.py`: the list, then `Before:` / `After:` | Regression server + a token for `regression_a` (needs setup, below) |
+| + | `11-final-checks.png` | `uv run pytest`, `ruff check`, `ruff format --check`, `makemigrations --check` all passing | No database (pytest uses its own test database) |
+
+**Optional (recommended where noted):**
+- `05-list-mobile.png`: the reading list at phone width. **Recommended**, because phone layout is still unverified manually.
+- `09-api-patch.png` and `09-api-validation-error.png`: a browsable API `PATCH`, and a 400 for an invalid status.
+- `10-script2-errors.png`: a few script 2 error messages (for example ID `abc`, status `done`, the server stopped).
+- `02-admin-savedbook.png`: the admin SavedBook list. Needs a superuser in the regression database (none exists yet).
+- `01-logged-out-message.png`, `02-empty-list.png` (needs a user with no books), `03-search-one-match.png`, `04-in-your-list.png`, `05-no-matches.png`.
+
+**Setup needed before some captures (all regression-only):**
+- **#7 outage:** stop the regression server and restart it in a terminal with a bad proxy, then search, then restart normally:
+  - PowerShell: `$env:HTTPS_PROXY = 'http://127.0.0.1:9'`
+  - Afterwards: `Remove-Item Env:HTTPS_PROXY`
+- **#18 script 2:** the regression database has **0 tokens**. Load `regression_a`'s token privately with the README's `get_or_create` command, run with the regression variables set. It creates a token **in the regression database only** and never displays it. Remove the variable afterwards.
+- **Admin (optional):** `uv run manage.py createsuperuser` with the regression variables set. Don't show the password.
+
+**Privacy rules for every screenshot:**
+- **No tokens, passwords, or secret keys.** Password fields must show only dots. Never screenshot `drf_create_token` output, or a terminal where a token was typed.
+- Usernames `regression_a` and `regression_b` are fine to show.
+- Crop out unrelated browser tabs, bookmarks, and personal information.
+- Synthetic books will appear in #10, #11, and #15. Their `[Synthetic Test]` titles make it clear they're test data.
+
+**Suggested capture order** (fewest restarts and state changes):
+1. #1–#3 logged out, and #16
+2. log in as `regression_a`: #4, #10, #11, #15, #12, #13
+3. #5, #6, #8, #9
+4. log in as `regression_b`: #14
+5. restart with the bad proxy: #7, then restart normally
+6. terminals: #17, #18 (token loaded privately), #19 (`11-final-checks.png`)
+7. any optional shots
+
+### Reflection Question 5 Evidence
+**Search of this log for real bugs and usability changes:**
+- **Changes the student requested after manual testing: none recorded.** Every manual-testing table in Sessions 10–20 shows all checks passing. No session records the student asking for a change after a manual test.
+- **Real application bugs**, each found and fixed **before** that phase was committed:
+  - **Phase 4:** a duplicate save crashed with a 500 (found by TDD), and junk work keys were saved.
+  - **Phase 5:** the book count would always say "10 books".
+  - **Phase 6:** the status dropdown used the wrong Bootstrap class (`form-control` instead of `form-select`).
+  - **Phase 10:** script 2 crashed (`AttributeError`) for a valid book not on the first page, plus the other crashes found by its RED tests.
+  - The evidence for these is **text only** (RED test output and error messages in this log). Because each fix came before the phase commit, **the buggy versions are not in Git history**.
+- **A real usability change with a committed BEFORE:** the **sidebar filter behavior**.
+  - In the throwaway prototype `prototypes/reading-list-layouts.html` (commit `bc55771`, 2026-11-14), choosing a status or sort **applied instantly through JavaScript** (`addEventListener("change", ...)`, with **no Apply button**).
+  - During planning, the student approved changing this (decisions doc, item 2, "approved 2026-11-14"): the real site uses one normal `GET` form with an **Apply** button and no JavaScript (`books/templates/books/includes/filter_sidebar.html`).
+  - It was proposed as a recommendation and approved by the student. It wasn't a complaint after manual testing.
+
+**Do real BEFORE screenshots exist?** **No.** No image files exist anywhere in the repository or its Git history.
+
+**Honest options for Question 5:**
+1. **Recommended: the sidebar Apply-button change.** The BEFORE state is a **real, committed artifact** that can be screenshotted now, with nothing recreated:
+   - **BEFORE:** open `prototypes/reading-list-layouts.html` in the browser, Layout B, and change a filter (it applies instantly, with no Apply button).
+   - **AFTER:** the real `/books/` sidebar with the Apply button (regression database, `regression_a`).
+   - Suggested names: `docs/screenshots/q5-before-prototype-instant-filters.png` and `docs/screenshots/q5-after-apply-button.png`.
+   - Label the BEFORE honestly as "captured later from the original prototype (commit `bc55771`)".
+2. **A real bug, documented with its recorded RED output instead of a BEFORE screenshot.** For example, the Phase 4 duplicate save that returned a 500 and now shows a friendly message, or script 2's first-page `AttributeError`, which now prints `Before: not available`. An AFTER screenshot can be captured now.
+3. **A real bug with a reconstructed BEFORE.** Temporarily undo the fix in a separate, throwaway copy (never in the real project or database) and screenshot the old behavior. This must be **clearly labeled as a reconstruction**. The student should check with the professor whether that's acceptable.
+
+**Screenshots captured (by the student):** the student chose option 1 and captured both screenshots manually. Claude didn't create, edit, or generate either image.
+
+| File | What it shows | Check (Terminal, Claude) |
+|---|---|---|
+| `docs/screenshots/q5-before-prototype-instant-filters.png` | **BEFORE:** the original throwaway **prototype** (`prototypes/reading-list-layouts.html`, Layout B, commit `bc55771`). The sidebar has a search box with a **Go** button, "All statuses" radio filters with counts, and a sort dropdown, with **no Apply button** (filters applied instantly through JavaScript). It uses the prototype's mock user `reader1` and its 13 sample books. | Valid PNG (signature, `IHDR`, `IEND`), 1503×723, 358,359 bytes. The prototype-only text (`reader1`, "Hyperion Cantos", the **Go** button, "All statuses") appears in the prototype file and in no real site template. |
+| `docs/screenshots/q5-after-apply-button.png` | **AFTER:** the completed **Django reading list** (`/books/`, regression database, `regression_a`). The real sidebar (search, status radios with counts, sort) has an **Apply** button that submits one `GET` form, with no JavaScript. The visible books are the clearly labeled `[Synthetic Test]` regression data. | Valid PNG (signature, `IHDR`, `IEND`), 1479×793, 278,695 bytes. |
+
+- **Origin of the change (recorded accurately):** this usability change was **recommended during planning and approved by the student** (decisions doc, item 2, "approved 2026-11-14"), after the prototype showed instant JavaScript filtering. It was **not** a bug discovered during later manual browser testing. The BEFORE image was captured **later** from the original, committed prototype file. It is not a screenshot taken on 2026-11-14.
+- **Privacy:** both images were viewed. Neither shows a token, password, secret key, bookmarks, or personal details. The only usernames are the prototype's mock `reader1` and the regression user `regression_a`.
+- **Git:** both files are untracked new files (`??`) and not gitignored. They aren't committed yet.
+
+Claude has not written or drafted any `REFLECTION.md` answer.
+
+### Bugs and Fixes
+- **Regression settings syntax error (my mistake, fixed):**
+  - **Problem:** the first `regression_settings.py` had a Windows path (`C:\Users\...`) in its docstring. The shell turned a doubled backslash into a single one, and Python read `\U` as a Unicode escape: `SyntaxError: (unicode error) 'unicodeescape' codec can't decode bytes ... truncated \UXXXXXXXX escape`.
+  - **Effect:** Django failed while importing the settings, **before any database connection**. `regression.sqlite3` wasn't created, and the original database was never opened.
+  - **Fix:** the docstring now describes the two variables without a Windows path. The checks then passed.
+  - The same backslash problem stopped my first attempt to update this `PROMPTS.md` entry, before anything was written. The update was redone with a raw string.
+- Two README mistakes (PowerShell `$` quoting, and the cover-image claim) and one missing step, all fixed in the README review above. No application bugs.
+
+### Decisions
+- The README recommends loading the token **straight into the environment variable** (so it's never shown) and describes `drf_create_token` as an alternative, with a warning that it prints the token.
+- The README uses the repository's real GitHub clone URL, since it lives in that public repository.
+- The deployment notes say plainly that the project has **not** been deployed.
+
+### Next Steps
+- The student reviews the README.
+- Backup and separate regression database: done (see above).
+- Next: the student captures the screenshots in the plan above (regression server, regression variables set) into `docs/screenshots/`, with no tokens or passwords visible. Afterwards, clear the variables and re-check the original database's fingerprint before starting the normal server.
+- The student provides the five reflection questions, so the evidence can be checked against them.
+- The student provides the five reflection questions and says whether any screenshots exist outside the repository.
