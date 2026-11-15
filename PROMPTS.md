@@ -484,3 +484,78 @@ Not included in the reported results: the `WARNING` line in the server terminal 
 
 ### Next Steps
 - Phase 4: save Open Library search results to the reading list.
+
+---
+
+## Session 13: Phase 4, Save from Search
+
+**Date:** November 14, 2026
+
+### Prompts Used
+- `/implement` Phase 4 of `plans/django-reading-list.md`, after re-reading `CLAUDE.md`, the PRD, the plan, and `PROMPTS.md`, stopping at each `/tdd` RED and GREEN for approval.
+- Approved the three `/tdd` behaviors one at a time, including the requirement that a near-simultaneous duplicate save must not crash.
+- Approved the remaining Phase 4 work: Save buttons, "In your list" labels, and the remaining tests.
+
+### Work Completed
+- **`SaveBookForm`** (a `ModelForm` with only the five Open Library fields): validates the work key with Django's `RegexValidator` (`^/works/OL[0-9]+W$`), requires a title and author, and converts the year and cover ID to integers (blank becomes `None`). `user` and `status` are not form fields, so they cannot be tampered with.
+- **`POST /books/save/`** (login required, `POST` only):
+  - sets the owner from the login and the status to Want to Read
+  - shows "Saved <title> to your reading list."
+  - shows "<title> is already in your reading list." for duplicates, with a database-rule backstop for near-simultaneous clicks (`transaction.atomic()` plus `except IntegrityError`)
+  - shows "Sorry, that book couldn't be saved because its details were invalid." for any invalid data
+  - redirects to a safe same-site `next` URL, otherwise `/search/`
+- **Search results:** each card has a "Save to My List" button (CSRF-protected `POST` form with hidden fields and the current search URL as `next`), or a green "✓ In your list" label if the user already saved that work. Saved work keys are looked up with one database query per search.
+
+### TDD (3 behaviors)
+1. **A valid save adds the book to my list as Want to Read.** RED: no book saved (404). The first version crashed on `.get()` instead of failing an assertion, so it was changed to assert the count first. GREEN: `SaveBookForm` plus a login-required, `POST`-only view that sets the user, with a safe redirect and a success message.
+2. **Saving the same book twice shows a friendly message and creates no duplicate.** RED: 500 Internal Server Error (`IntegrityError` from the Phase 2 unique rule). The test client was set to return server errors as pages, like a real browser. GREEN: an "already saved?" check, plus `transaction.atomic()` and `except IntegrityError` as a backstop.
+3. **An invalid work key is rejected without saving** (4 cases: `abc`, `/books/OL123M`, empty, `/works/OLW`). RED: three junk keys were saved, and the empty key was rejected silently with no message. GREEN: `RegexValidator` on the form's `work_key`, and an error message for invalid forms.
+
+### Tests
+- 69 tests pass: 6 TDD test cases (behavior 3 has 4 cases), 12 more Phase 4 tests, and the 51 earlier tests.
+- The other Phase 4 tests cover:
+  - saving requires login, and a `GET` to `/books/save/` returns 405
+  - a submitted `user` ID is ignored, and an unsafe `next` URL falls back to `/search/`
+  - different users can save the same work, and the duplicate race backstop holds (simulated by making the "already saved?" check miss)
+  - an invalid year shows the error, and a book without a year or cover can be saved
+  - "In your list" vs. the Save button, and another user's saved book still shows Save
+  - the save form is a CSRF-protected `POST` with the correct hidden fields and `next`
+  - saved work keys are checked with exactly one query
+- `ruff check`, `ruff format --check`, `manage.py check`, and `makemigrations --check` all pass (no model changes).
+
+### Bugs and Fixes
+- **Duplicate save crashed (found by TDD behavior 2):** the second save of the same book caused a 500 error. Fixed with the "already saved?" check and the `IntegrityError` backstop.
+- **Junk work keys were saved (found by TDD behavior 3):** `abc`, `/books/OL123M`, and `/works/OLW` were all accepted. Fixed with the `RegexValidator`.
+- **Invalid saves gave no feedback:** an invalid form redirected silently. Fixed with a friendly error message.
+- **Test that crashed instead of failing:** behavior 1's first RED used `.get()`, which raised `DoesNotExist`. Changed to assert the count first (a mechanical change before approval).
+- **Hard-to-read formatting:** Ruff's formatter wrapped `book.user = request.user` with a trailing comment into three lines. Moved the comment above the line.
+
+### Decisions
+- The work-key format rule lives on the save form, not the model, so no new migration was needed.
+- Used `[0-9]` instead of `\d` in the pattern, because `\d` also matches digits from other alphabets.
+- Duplicate messages are blue (info), success is green, and invalid data is red (error).
+- The race-condition backstop was first checked by hand with a temporary script on a throwaway test database, then saved as a permanent test.
+
+### Manual Browser Testing Results
+The student personally tested Phase 4 in the browser. All checks passed:
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Save to My List buttons appear on search results | Passed |
+| 2 | Saving Dune shows the success message and the "In your list" label | Passed |
+| 3 | Dune appears in My Reading List with Want to Read status | Passed |
+| 4 | Saving a second book works | Passed |
+| 5 | Duplicate saves show a friendly message without creating another copy | Passed |
+| 6 | Invalid work keys (edited in DevTools) are rejected with a red error message | Passed |
+| 7 | Unsafe redirect URLs are blocked | Passed |
+| 8 | Books without covers save and display correctly | Passed |
+| 9 | Different users can save the same book independently | Passed |
+| 10 | `GET /books/save/` returns 405 Method Not Allowed | Passed |
+| 11 | The mobile layout works at 375px | Passed |
+
+### Phase 4 Checkpoint
+- Phase 4 complete: automated checks pass and manual browser verification was approved by the student.
+- Committed and pushed as the Phase 4 checkpoint.
+
+### Next Steps
+- Phase 5: search, filter, sort, and paginate the reading list.

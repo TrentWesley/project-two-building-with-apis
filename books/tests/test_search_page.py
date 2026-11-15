@@ -1,7 +1,10 @@
 import pytest
 from django.contrib.auth.models import User
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from books import openlibrary
+from books.models import SavedBook
 
 TEST_PASSWORD = "Test-only-pass-2026!"
 
@@ -163,3 +166,68 @@ def test_open_library_failure_is_logged_for_the_developer(
     client.get("/search/", {"title": "dune"})
 
     assert "technical details here" in caplog.text
+
+
+def test_saved_results_show_in_your_list_and_others_show_save_button(
+    client, reader, monkeypatch
+):
+    SavedBook.objects.create(
+        user=reader, work_key="/works/OL893414W", title="Dune", author="Frank Herbert"
+    )
+    monkeypatch.setattr(
+        openlibrary, "search_books", fake_results(2, [DUNE, NO_DETAILS])
+    )
+    client.force_login(reader)
+
+    content = client.get("/search/", {"title": "dune"}).content.decode()
+
+    assert "In your list" in content
+    assert content.count("Save to My List") == 1
+
+
+def test_another_users_saved_book_still_shows_save_button(client, reader, monkeypatch):
+    other_reader = User.objects.create_user(username="reader2", password=TEST_PASSWORD)
+    SavedBook.objects.create(
+        user=other_reader,
+        work_key="/works/OL893414W",
+        title="Dune",
+        author="Frank Herbert",
+    )
+    monkeypatch.setattr(openlibrary, "search_books", fake_results(1, [DUNE]))
+    client.force_login(reader)
+
+    content = client.get("/search/", {"title": "dune"}).content.decode()
+
+    assert "In your list" not in content
+    assert "Save to My List" in content
+
+
+def test_save_form_is_a_csrf_protected_post_with_hidden_fields(
+    client, reader, monkeypatch
+):
+    monkeypatch.setattr(openlibrary, "search_books", fake_results(1, [DUNE]))
+    client.force_login(reader)
+
+    content = client.get("/search/", {"title": "dune"}).content.decode()
+
+    assert 'method="post" action="/books/save/"' in content
+    assert 'name="csrfmiddlewaretoken"' in content
+    assert 'name="work_key" value="/works/OL893414W"' in content
+    assert 'name="first_publish_year" value="1965"' in content
+    assert 'name="cover_id" value="11481354"' in content
+    assert 'name="next" value="/search/?title=dune"' in content
+
+
+def test_saved_work_keys_are_checked_with_one_query(client, reader, monkeypatch):
+    monkeypatch.setattr(
+        openlibrary, "search_books", fake_results(2, [DUNE, NO_DETAILS])
+    )
+    client.force_login(reader)
+
+    with CaptureQueriesContext(connection) as queries:
+        client.get("/search/", {"title": "dune"})
+
+    saved_book_queries = [
+        query for query in queries.captured_queries if "books_savedbook" in query["sql"]
+    ]
+    assert len(saved_book_queries) == 1

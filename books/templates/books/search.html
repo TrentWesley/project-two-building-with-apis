@@ -44,6 +44,22 @@
                 {% if book.first_publish_year %}{{ book.first_publish_year }}{% else %}Year unknown{% endif %}
               </p>
             </div>
+            <div class="card-footer bg-white border-0 pt-0 pb-3">
+              {% if book.work_key in saved_work_keys %}
+                <span class="badge text-bg-success w-100 py-2">✓ In your list</span>
+              {% elif book.work_key %}
+                <form method="post" action="{% url 'books:save' %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="work_key" value="{{ book.work_key }}">
+                  <input type="hidden" name="title" value="{{ book.title }}">
+                  <input type="hidden" name="author" value="{{ book.author }}">
+                  <input type="hidden" name="first_publish_year" value="{{ book.first_publish_year|default_if_none:'' }}">
+                  <input type="hidden" name="cover_id" value="{{ book.cover_id|default_if_none:'' }}">
+                  <input type="hidden" name="next" value="{{ current_url }}">
+                  <button type="submit" class="btn btn-outline-primary btn-sm w-100">Save to My List</button>
+                </form>
+              {% endif %}
+            </div>
           </div>
         </div>
       {% endfor %}
