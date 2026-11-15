@@ -47,7 +47,8 @@ books/             The ONLY Django app: model, views, forms, filters helper,
 templates/         Shared base layout, home page, auth pages (registration/), and includes/ partials
 main.py            Script 1: searches Open Library from the terminal (FINISHED; keep independent)
 test_main.py       Tests for script 1
-api_script.py      Script 2: lists my books via our API and updates a status (Phase 10)
+api_script.py      Script 2: lists my books via our API and updates a status (see "Script 2" below)
+test_api_script.py Tests for script 2 (mocked HTTP and input, fake token)
 prd/ plans/ docs/  PRD, implementation plan, decisions, research, screenshots
 prototypes/        Throwaway UI prototype kept as evidence (not production code)
 ```
@@ -96,6 +97,33 @@ prototypes/        Throwaway UI prototype kept as evidence (not production code)
 - **UI:** Layout B (dark navbar, card grid + sidebar with a `GET` form and an **Apply** button, status badges:
   gray/blue/green). The same style on every page, and responsive on phones.
 
+## Script 2 (`api_script.py`)
+
+- **Purpose:** list my saved books through our Django REST API, then update one book's status. It never calls Open Library.
+- **Run:** start the Django server (`uv run manage.py runserver`), then `uv run api_script.py`.
+- **Configuration (environment variables only):**
+  - `READING_LIST_TOKEN` (**required**): create it with `uv run manage.py drf_create_token <username>` and set it in the terminal.
+    Without it, the script prints setup instructions and sends no request.
+  - `READING_LIST_API_URL` (optional): default `http://127.0.0.1:8000`. Outer spaces and a trailing slash are removed,
+    and a value of only spaces counts as not set.
+  - **Never** commit, print, log, or document a real token. The script never prints it.
+- **Flow:**
+  1. `GET /api/books/` lists the **first page only** (up to 10 books) as `[id] title - status`.
+  2. It asks for a book ID (must be digits) and a status (`want_to_read`, `reading`, or `finished`). Both are validated
+     before any request.
+  3. `PATCH /api/books/<id>/` sends `{"status": ...}`.
+  4. It prints `Before:` (from the list) and `After:` (from the `PATCH` response). If the book wasn't on the first page,
+     it prints `Before: not available (...)` instead of guessing, and makes no extra request.
+- **Requests:** `Authorization: Token <token>` header and `timeout=10` (`TIMEOUT_SECONDS`) on both.
+- **Error handling** (a friendly message and a clean stop, never a traceback; no input or `PATCH` after a failed list):
+  missing token, empty list, a blank or non-numeric ID, a blank or invalid status, 401 (token rejected), 404 on `PATCH`
+  (`No book with ID <id> in your reading list.`), other 4xx (`The API rejected the request (HTTP <code>)`), 500 or higher,
+  timeout (checked before connection errors), server unreachable, and invalid JSON. A malformed `READING_LIST_API_URL`
+  (for example, no `http://`) raises a `ValueError` subclass in `requests`, so it gets the invalid-response message.
+- **Code layout:** small functions (`get_token`, `get_api_url`, `list_books`, `update_status`, message helpers,
+  `book_id_error`, `status_error`, `find_book`) and `main()`, with the `__name__` guard. Messages are constants or small
+  `*_message()` functions at the top of the file.
+
 ## Commands
 
 | Purpose | Command |
@@ -136,7 +164,10 @@ Always use `uv run`, never a bare `python` or `pip`.
 
 ## Testing requirements
 
-- All tests run with **`uv run pytest`** (plain `assert` style), including script 1 tests.
+- All tests run with **`uv run pytest`** (plain `assert` style), including the script 1 and script 2 tests.
+- Script 2 tests (`test_api_script.py`) replace `requests.get`/`requests.patch` and `input()` with `monkeypatch`, use a clearly
+  fake token string (`FAKE_TOKEN`), and use a `FakeResponse` class. `run_without_crashing()` turns a `requests` error escaping
+  `main()` into `pytest.fail(...)`, so "no traceback" is a real check. They never need a server or a real token.
 - **Tests never call the real Open Library API or need a running server.** Fake external calls with pytest's
   built-in `monkeypatch`.
 - `books/tests/conftest.py` has an autouse fixture that makes any real `requests.get` call fail, so a test that

@@ -955,3 +955,221 @@ No screenshots were captured during this session. The plan's suggested `09-api-p
 
 ### Next Steps
 - Phase 10: script 2 (`api_script.py`).
+
+---
+
+## Session 19: Phase 10, Script 2 (`api_script.py`)
+
+**Date:** November 15, 2026
+
+### Prompts Used
+- `/implement` Phase 10 of `plans/django-reading-list.md` with `/tdd`, after re-reading `CLAUDE.md`, `PROMPTS.md`, the PRD, the plan, and the skill instructions. Script 1 (`main.py`) was reviewed for style.
+- The student asked for **only the first `/tdd` behavior** in this step (explain it, write a failing test, show RED, then write the minimum code for GREEN), then stop and report.
+- Next prompt: **only `/tdd` behavior 2** (a successful run lists the books and updates one status), faking the token, the `GET` response with two books, the `input()` answers, and the `PATCH` response, then stop and report.
+- Next prompt: **only `/tdd` behavior 3** (a `PATCH` 404 for ID 99 prints exactly `No book with ID 99 in your reading list.`, with no crash, no `Before:`/`After:` lines, and no real request), then stop and report.
+- Next prompt: normal tests for **invalid user input only** (a non-numeric ID, a blank ID, an invalid status, a blank status): a friendly, specific message, no crash, and no `PATCH`. Write the tests first, confirm RED, then make the smallest change. 401, connection errors, empty lists, invalid JSON, and the URL override are left for later steps.
+- Next prompt: **HTTP 401 only**, with mocked tests first for a 401 on the `GET` and a 401 on the `PATCH`. The requirements: a friendly token-rejected message, the token value never shown, no crash, no `Before:`/`After:` lines, no input or `PATCH` after a `GET` 401, and a graceful stop after a `PATCH` 401.
+- Next prompt: **network connection errors only**, with mocked tests first for `requests.ConnectionError` on the `GET` and on the `PATCH`. The requirements: a friendly could-not-reach message that suggests checking the Django development server is running, no crash, the token never shown, no `Before:`/`After:` lines, no input or `PATCH` after a failed `GET`, and a graceful stop after a failed `PATCH`.
+- Next prompt: **an empty reading list only**, with a mocked test first where the `GET` returns 200 with `{"count": 0, "next": null, "previous": null, "results": []}`. The requirements: a friendly empty-list message suggesting adding a book on the website, no ID or status questions, no `PATCH`, no crash, and no `Before:`/`After:` lines.
+- Next prompt: **invalid JSON only**, with mocked tests first for a `GET` 200 whose `response.json()` raises a JSON decoding error, and the same for the `PATCH`. The requirements: a friendly invalid-response message, no crash, the token never shown, no `Before:`/`After:` lines, no input or `PATCH` after a bad list, and a graceful stop after a bad `PATCH`.
+- Next prompt: **HTTP 500 only**, with mocked tests first for a 500 on the `GET` and on the `PATCH`. The requirements: a friendly server-error message suggesting the Django server terminal, no crash, the token never shown, no `Before:`/`After:` lines, no input or `PATCH` after a failed `GET`, a graceful stop after a failed `PATCH`, and the existing 401 and 404 messages kept.
+- Next prompt: **request timeouts only**, with mocked tests first for `requests.Timeout` on the `GET` and on the `PATCH`. The requirements: a friendly timed-out message suggesting checking the Django development server, no crash, the token never shown, no `Before:`/`After:` lines, no input or `PATCH` after a `GET` timeout, a graceful stop after a `PATCH` timeout, and the 10-second timeout kept.
+- Next prompt: **the `READING_LIST_API_URL` override only**, with mocked tests first: `http://localhost:9000` is used for both `GET` and `PATCH`, the default `http://127.0.0.1:8000` is used when it's not set, and outer spaces or a trailing slash are cleaned up. The auth header, the 10-second timeout, and all earlier behavior are kept, and the token is never shown.
+- Next prompt: **the first-page issue only**. A mocked test first: the list shows IDs 12 and 7, the user enters `99` and `finished`, and the `PATCH` succeeds. The requirements: no crash, a clear explanation that the previous status wasn't on the displayed page, `After: finished`, no guessed status, no `Before: None`, and no extra API request.
+- Next prompt: **unexpected HTTP 4xx errors only**, with mocked tests first for a 403 on the `GET` and a 400 on the `PATCH`. The requirements: a friendly rejected-request message that includes the status code, no crash, the token never shown, no `Before:`/`After:` lines, no input or `PATCH` after a failed `GET`, a graceful stop after a failed `PATCH`, and the specific 401, 404, and 5xx messages kept. `CLAUDE.md` and live verification are left for later.
+- Next prompt: **documentation only** (no code or test changes). Review the finished `api_script.py` and `test_api_script.py`, update `CLAUDE.md` with concise Script 2 instructions, keep the existing guidance, and update this entry.
+- Next prompt: **prepare for live verification** without running the status-changing `PATCH`. Check the server, find a safe test user and book, propose a different valid status, explain how to set `READING_LIST_TOKEN` privately, and record the preparation. No code, test, book, or token changes.
+- Next prompt: record the **student-reported live verification results** (Dune 21: `finished` to `reading` and back), keeping student-reported results separate from terminal checks, without claiming any other manual error scenarios, then run all checks.
+- Final prompt: the student confirmed that `READING_LIST_TOKEN` was removed from the PowerShell environment and approved the Phase 10 Git checkpoint. Review the changes, run all checks, stage the four Phase 10 files by name, and commit with `feat: add API reading list update script`.
+
+### Work Completed
+- **`api_script.py`** (new):
+  - first a scaffold (an empty `main()` and the main guard), so the test could import the script and fail on an assertion instead of an import error
+  - then the GREEN code: `get_token()` reads `READING_LIST_TOKEN` (spaces trimmed, `""` if unset), and `main()` prints `MISSING_TOKEN_MESSAGE` and stops when the token is missing
+- **`test_api_script.py`** (new, at the root next to `test_main.py`):
+  - a `sent_requests` fixture replaces `requests.get` and `requests.patch` with fakes that record any call and fail, so nothing can reach a real server
+  - `input()` is also faked to fail, proving the script stops before asking anything
+- **Behavior 2 additions to `api_script.py`:**
+  - `DEFAULT_API_URL` (`http://127.0.0.1:8000`) and `TIMEOUT_SECONDS` (10)
+  - `auth_headers()` builds `Authorization: Token <token>`
+  - `list_books()` sends the `GET`, calls `raise_for_status()`, and returns `results` (`.get(..., [])`)
+  - `update_status()` sends `PATCH {"status": ...}` and returns the updated book
+  - `format_book()` builds a line like `[12] Dune - want_to_read`, using `.get()` defaults
+  - `find_book()` finds the chosen book in the list, for the `Before:` value
+  - `main()` lists the books with the "Showing the first page only" note, asks for the ID and status, sends the `PATCH`, and prints `Before:` (from the list) and `After:` (from the `PATCH` response)
+- **Behavior 3 change to `api_script.py`:** `main()` wraps `update_status()` in `try/except requests.HTTPError`. A 404 prints `No book with ID <id> in your reading list.` and returns before any `Before:`/`After:` lines. Any other HTTP error is re-raised for now, to be handled by the planned 401 test.
+- **Invalid input change to `api_script.py`:**
+  - `STATUSES` lists the three codes
+  - `book_id_error()` returns a message for a blank or non-numeric ID (`str.isdigit()`)
+  - `status_error()` returns a message for a blank or unknown status, listing the allowed codes
+  - `main()` checks the ID right after it's typed (and stops before asking for a status), then checks the status, so nothing is sent for bad input
+- **401 change to `api_script.py`:**
+  - `TOKEN_REJECTED_MESSAGE` says the token was rejected (HTTP 401), to check `READING_LIST_TOKEN`, and how to create a token. It never includes the token itself.
+  - `http_status()` reads the status code from an `HTTPError`
+  - `main()` catches a 401 from `list_books()` and stops before any input, and catches a 401 from `update_status()` next to the existing 404 check. The 404 check now also uses `http_status()`.
+- **Connection error change to `api_script.py`:**
+  - `cannot_reach_message(base_url)` says it couldn't reach the API at that address and to check that the Django development server is running (`uv run manage.py runserver`)
+  - `main()` catches `requests.ConnectionError` around both `list_books()` and `update_status()`, prints the message, and stops
+  - Only `ConnectionError` is caught, so timeouts and other request errors are still left for later steps
+- **Empty list change to `api_script.py`:** `EMPTY_LIST_MESSAGE` ("Your reading list is empty." plus a suggestion to search for and save a book on the website). `main()` prints it and stops right after the list loads, if `results` is empty, before printing the list header or asking anything.
+- **Invalid JSON change to `api_script.py`:** `invalid_response_message(base_url)` says the API returned an invalid response (not JSON) and to check that the reading list server is running at that address. `main()` catches `ValueError` around both `list_books()` and `update_status()`. `requests.JSONDecodeError` is a kind of `ValueError`, the same exception `main.py` and the Open Library service catch.
+- **HTTP 500 change to `api_script.py`:**
+  - `SERVER_ERROR_MESSAGE` says the API had a server error and to check the Django server terminal for details
+  - `is_server_error()` is true for status 500 or higher
+  - `main()` checks it in both `except requests.HTTPError` blocks, after the existing 401 and 404 checks, which are unchanged
+- **Timeout change to `api_script.py`:**
+  - `timed_out_message(base_url)` says the request timed out after `TIMEOUT_SECONDS` (10) seconds, shows the address, and asks the user to check that the Django development server is running and responding
+  - `main()` catches `requests.Timeout` around both `list_books()` and `update_status()`
+  - The `Timeout` block comes **before** the `ConnectionError` block, because `requests.ConnectTimeout` is both, and a connect timeout should get the timeout message
+  - The 10-second timeout itself is unchanged
+- **URL override change to `api_script.py`:** `get_api_url()` reads `READING_LIST_API_URL`, removes outer spaces and a trailing slash (`.strip().rstrip("/")`), and falls back to `DEFAULT_API_URL` if the result is empty. `main()` uses it as the one `base_url` for both requests and for the address shown in error messages.
+- **First-page change to `api_script.py`:** when the `PATCH` succeeds for a book that wasn't in the displayed list (`find_book()` returned `None`), `main()` prints `Before: not available (book <id> is not on the first page shown above)` and then `After: ...`, instead of calling `.get()` on `None`. No extra request is made.
+- **Other 4xx change to `api_script.py`:** `rejected_message(error)` builds `The API rejected the request (HTTP <code>).` plus "Check your input and token, then try again." The bare `raise` at the end of both `except requests.HTTPError` blocks in `main()` is replaced by printing that message and returning, so no HTTP error reaches the user as a traceback. The 401, 404, and 5xx checks come first and are unchanged.
+- **`CLAUDE.md` (documentation step, no code or test changes):**
+  - **Project structure:** now lists `test_api_script.py`.
+  - **New "Script 2 (`api_script.py`)" section:**
+    - purpose, and the run command (with the server running)
+    - `READING_LIST_TOKEN` (required) and `READING_LIST_API_URL` (optional, default `http://127.0.0.1:8000`, cleaned up)
+    - never commit, print, or document a real token
+    - the flow: `GET` the first page, validated ID and status, `PATCH`, then `Before:`/`After:` ("not available" for a book not on the first page)
+    - the token header and `timeout=10`
+    - a summary of every handled error, and the function layout
+  - **Testing requirements:** says `uv run pytest` includes the script 2 tests, and how they fake HTTP and `input()` with a fake token.
+  - Everything already in `CLAUDE.md` was kept. The "Script 1 / Script 2" commands row and the Security rule about `READING_LIST_TOKEN` were already correct.
+- **Behavior 2 additions to `test_api_script.py`:** a `FakeResponse` class (`status_code`, `json()`, `raise_for_status()`), a `TWO_BOOKS_PAGE` sample response, a `fake_inputs()` helper, and a clearly fake token string (`fake-test-token`).
+
+### TDD (3 behaviors)
+1. **A missing token prints the setup message and sends no request.** The test covers 3 cases: the variable unset, set to `""`, and set to `"   "`. RED (all 3): `AssertionError: assert 'READING_LIST_TOKEN is not set' in ''`, because the scaffold's `main()` printed nothing. GREEN: `get_token()` plus the early return in `main()`. The message tells the user to run `uv run manage.py drf_create_token <your-username>` and set the token in the terminal, not in a file. All 3 cases pass, no request is sent, and no input is asked for.
+2. **A successful run lists the books, then shows `Before:` and `After:`.** The faked `GET` returns Dune (ID 12, `want_to_read`) and The Hobbit (ID 7, `reading`). The fake input picks `12` and `finished`, and the faked `PATCH` returns Dune as `finished`. The test checks:
+   - the first-page note and both book lines
+   - `Before: want_to_read` and `After: finished`
+   - exactly one `GET` to `http://127.0.0.1:8000/api/books/`, then one `PATCH` to `.../api/books/12/` with `{"status": "finished"}`
+   - the token header and `timeout=10` on both requests
+
+   RED: `AssertionError: assert 'Showing the first page only' in ''`, because `main()` stopped after the token check. GREEN: `list_books()`, `update_status()`, and the rest of the flow in `main()`. The behavior 1 tests still pass.
+3. **A `PATCH` 404 prints a friendly message.** The faked list is valid, the input is `99` and `finished`, and the faked `PATCH` returns 404. The test runs `main()` inside `try/except requests.RequestException` and calls `pytest.fail(...)` on a crash, so "no traceback" is a real check. It then checks:
+   - the exact line `No book with ID 99 in your reading list.`
+   - no `Before:` or `After:` lines
+   - only the two faked requests (`GET` the list, `PATCH` `/api/books/99/`)
+
+   RED: `Failed: The script crashed instead of showing a message: HTTPError('404 error')`. GREEN: the `try/except` around `update_status()` in `main()`. Behaviors 1 and 2 still pass.
+
+### Tests
+- **Invalid input (normal tests, 5 cases):** a parametrized test covers `abc` as the ID, a blank ID, `abandoned` as the status, and a blank status. Each checks the specific message, that no `PATCH` was sent, and no `Before:`/`After:` lines. A separate test checks that the status message lists `want_to_read, reading, finished`. The faked `PATCH` records calls and returns 404, so the old code finished without crashing and the tests failed on real assertions.
+  - **RED (all 5):** the script sent the bad input to the API, and the faked 404 printed `No book with ID abc in your reading list.` (or `No book with ID  in your reading list.` for a blank ID) instead of a validation message.
+  - **GREEN:** `book_id_error()`, `status_error()`, and the two checks in `main()`.
+- **HTTP 401 (normal tests, 2):** a shared `run_without_crashing()` helper turns any `requests` error escaping `main()` into `pytest.fail(...)`.
+  - **List 401:** checks the message, that `READING_LIST_TOKEN` is mentioned, that the fake token isn't printed, that `input()` is never called (faked to fail), that no `PATCH` is sent, and no `Before:`/`After:` lines.
+  - **`PATCH` 401** (after a valid list and valid input): checks the message, that the fake token isn't printed, and no `Before:`/`After:` lines.
+  - **RED (both):** `Failed: The script crashed instead of showing a message: HTTPError('401 error')`.
+  - **GREEN:** `TOKEN_REJECTED_MESSAGE`, `http_status()`, and the two 401 checks in `main()`.
+- **Connection errors (normal tests, 2):** a `refuse_connection()` fake raises `requests.ConnectionError("Connection refused")`.
+  - **List unreachable:** checks the could-not-reach message, the "Django development server is running" hint, that the fake token isn't printed, that `input()` is never called, that no `PATCH` is sent, and no `Before:`/`After:` lines.
+  - **`PATCH` unreachable** (after a valid list and valid input): checks the message, the hint, that the fake token isn't printed, and no `Before:`/`After:` lines.
+  - **RED (both):** `Failed: The script crashed instead of showing a message: ConnectionError('Connection refused')`.
+  - **GREEN:** `cannot_reach_message()` and the two `except requests.ConnectionError` blocks in `main()`.
+- **Empty list (normal test, 1):** the faked `GET` returns the empty page. The faked `input()` records each prompt and returns `""`, so the old code didn't crash and the test failed on its own checks. It checks the message, that the website is mentioned, that no input was asked (`input_prompts == []`), that no `PATCH` was sent, and no `Before:`/`After:` lines.
+  - **RED:** `AssertionError: assert 'Your reading list is empty.' in 'Your saved books (Showing the first page only):
+
+Please enter a book ID.
+'`. The script printed an empty list header and still asked for a book ID.
+  - **GREEN:** `EMPTY_LIST_MESSAGE` and the `if not books:` check in `main()`.
+- **Invalid JSON (normal tests, 2):** a `BadJSONResponse` fake (status 200) whose `json()` raises `requests.JSONDecodeError("Expecting value", "<html>Oops</html>", 0)`.
+  - **Bad list response:** checks the invalid-response message, that the fake token isn't printed, that `input()` is never called, that no `PATCH` is sent, and no `Before:`/`After:` lines.
+  - **Bad `PATCH` response** (after a valid list and valid input): checks the message, that the fake token isn't printed, and no `Before:`/`After:` lines.
+  - **RED (both):** `Failed: The script crashed instead of showing a message: JSONDecodeError('Expecting value: line 1 column 1 (char 0)')`.
+  - **GREEN:** `invalid_response_message()` and the two `except ValueError` blocks in `main()`.
+- **HTTP 500 (normal tests, 2):** the faked response is `FakeResponse(500, "Server Error")`.
+  - **List 500:** checks the server-error message, the "Django server terminal" hint, that the fake token isn't printed, that `input()` is never called, that no `PATCH` is sent, and no `Before:`/`After:` lines.
+  - **`PATCH` 500** (after a valid list and valid input): checks the message, the hint, that the fake token isn't printed, and no `Before:`/`After:` lines.
+  - **RED (both):** `Failed: The script crashed instead of showing a message: HTTPError('500 error')`.
+  - **GREEN:** `SERVER_ERROR_MESSAGE`, `is_server_error()`, and the two checks in `main()`. The 401 and 404 tests still pass.
+- **Timeouts (normal tests, 2):** each fake records the `timeout` argument it received, then raises `requests.Timeout("Read timed out.")`.
+  - **List timeout:** checks the timed-out message, the "Django development server" hint, that the fake token isn't printed, that `timeout=10` was sent, that `input()` is never called, that no `PATCH` is sent, and no `Before:`/`After:` lines.
+  - **`PATCH` timeout** (after a valid list and valid input): checks the message, the hint, that the fake token isn't printed, that `timeout=10` was sent, and no `Before:`/`After:` lines.
+  - **RED (both):** `Failed: The script crashed instead of showing a message: Timeout('Read timed out.')`.
+  - **GREEN:** `timed_out_message()` and the two `except requests.Timeout` blocks in `main()`.
+- **`READING_LIST_API_URL` (normal test, 4 cases):** one parametrized test runs a full successful flow for each setting. It checks both request URLs, the token header and `timeout=10` on both, `After: finished`, and that the fake token isn't printed.
+  - Cases: `http://localhost:9000`; not set; only spaces (`"   "`); and `"  http://localhost:9000/  "`, expected as `http://localhost:9000`.
+  - **RED (2 of 4):** both "set" cases failed with `At index 0 diff: 'http://127.0.0.1:8000/api/books/' != 'http://localhost:9000/api/books/'`, because the script ignored the variable.
+  - **Regression cases (2 of 4):** "not set" and "only spaces" passed on their first run, because the script already used the default URL. They're kept to protect the default.
+  - **GREEN:** `get_api_url()` and `base_url = get_api_url()` in `main()`.
+- **Book not on the first page (normal test, 1):** the list shows IDs 12 and 7, the input is `99` and `finished`, and the faked `PATCH` returns book 99 as `finished`. The test catches `AttributeError` and calls `pytest.fail(...)` on a crash. It checks `Before: not available`, the "not on the first page" explanation, `After: finished`, that `Before: None` is never printed, and that only one `GET` was made.
+  - **RED:** `Failed: The script crashed instead of showing a message: AttributeError("'NoneType' object has no attribute 'get'")`.
+  - **GREEN:** the `if before is None:` branch in `main()`.
+  - The behavior 2 test (a book on the first page shows `Before: want_to_read`) and the behavior 3 test (404) still pass.
+- **Other HTTP 4xx (normal tests, 2):**
+  - **List 403:** checks `The API rejected the request (HTTP 403)`, that the fake token isn't printed, that `input()` is never called, that no `PATCH` is sent, and no `Before:`/`After:` lines.
+  - **`PATCH` 400** (after a valid list and valid input): checks `The API rejected the request (HTTP 400)`, that the fake token isn't printed, and no `Before:`/`After:` lines.
+  - **RED (both):** `Failed: The script crashed instead of showing a message: HTTPError('403 error')` and `HTTPError('400 error')`.
+  - **GREEN:** `rejected_message()`, replacing both bare `raise` lines. The 401, 404, and 500 tests still pass.
+- **198 passed:** 170 earlier, 5 for the three TDD behaviors, 5 invalid-input cases, 2 for 401, 2 for connection errors, 1 for the empty list, 2 for invalid JSON, 2 for HTTP 500, 2 for timeouts, 4 for the URL setting, 1 for a book not on the first page, and 2 for other 4xx. All earlier script tests still pass.
+- `ruff check .` and `ruff format --check .` pass.
+- Running `uv run api_script.py` without the token prints the setup message. No token was created, used, or recorded.
+
+### Live Verification Preparation
+Read-only checks; no book, user, or token was changed:
+- **Server:** not running at preparation time. `GET http://127.0.0.1:8000/api/books/` couldn't connect.
+- **Users:**
+
+  | User | Saved books | Has a token |
+  |---|---|---|
+  | admin (staff) | 3 | no |
+  | reader1 | 0 | no |
+  | reader2 | 11 | no |
+  | reader3 | 5 | no |
+  | reader4 | 1 | yes |
+
+  Only reader4 has a token. Only the fact that it exists was checked, never its value.
+- **Proposed test book:** reader4's only book, **Dune (ID 21)**, currently `finished` (rating 5, notes "Updated via API"). It's the Phase 9 test book, and with one book it's always on the first page, so `Before:` will be shown.
+- **Proposed change:** `finished` to **`reading`**, a different valid status, so the update is visible in the database and on `/books/`. Running the script again with `finished` afterwards restores Dune.
+- **Private token setup (planned):** load reader4's existing token into `$env:READING_LIST_TOKEN` straight from the database with `uv run manage.py shell -v 0 -c ...`, capturing the output into the variable so it's never displayed. A test with a placeholder value confirmed that `-v 0` prints only the value (exactly one line). Then confirm it's set by showing only its length, and remove it afterwards with `Remove-Item Env:READING_LIST_TOKEN`.
+- **Also planned:** the error checks from the plan (no token, a wrong token, the server stopped, ID `abc`, an ID that isn't reader4's, and status `done`) and a run with a user who has no books. reader1 has 0 books but no token, so that check needs a token created for reader1 by the student.
+
+### Live Verification Results
+**Sources:**
+- **Student-reported:** the student ran the script against the running Django server, using reader4's existing token (set privately; its value was never displayed or recorded).
+- **Terminal (Claude):** Claude ran the command directly in this session.
+
+| # | Check | Result | Source |
+|---|---|---|---|
+| 1 | Run with reader4's token | Passed: listed Dune (ID 21), initially `finished` | Student-reported |
+| 2 | Enter ID `21` and status `reading` | Passed: `Before: finished` / `After: reading` | Student-reported |
+| 3 | Refresh `/books/` as reader4 | Passed: Dune shows the Reading badge, the Reading count is 1, and the Finished count is 0 | Student-reported |
+| 4 | Run again with ID `21` and status `finished` (restore) | Passed: `Before: reading` / `After: finished` | Student-reported |
+| 5 | `uv run api_script.py` with no `READING_LIST_TOKEN` (during behavior 1) | Passed: printed the setup message and sent no request | Terminal (Claude) |
+| 6 | `uv run api_script.py` with a fake token and `READING_LIST_API_URL=localhost:9000` (during the 4xx step) | Printed the invalid-response message, not a traceback. No request was sent, because `requests` rejected the URL. | Terminal (Claude) |
+
+Dune (ID 21) ends as `finished`, as it was before the live test. Afterwards the student confirmed that `READING_LIST_TOKEN` was removed from the PowerShell environment.
+
+**Not verified yet:** the plan's other manual error checks (a wrong token, the server stopped, ID `abc`, an ID that isn't reader4's, status `done`, and a user with no books) have **not** been run against the live server. Rows 5–6 are the only terminal runs, and the automated tests cover all of these cases with mocked responses. No screenshots were recorded in this entry.
+
+### Bugs and Fixes
+- No application bugs so far.
+- **Syntax error while editing (my mistake, fixed straight away):** the helper script that inserted `timed_out_message()` turned the `
+` inside the message into a real line break, which broke the string. `pytest` and Ruff reported `invalid-syntax: f-string: unterminated string` at `api_script.py:90`. Fixed with an exact edit that restored `
+`. All tests then passed and Ruff was clean. No test was changed.
+- **Message wording caught before testing:** the first draft of the invalid-JSON message told the user to check `READING_LIST_API_URL`, but the script doesn't read that variable yet (the override is a later step). It was changed to name the address the script actually used, before the tests were run.
+- **Lint issue in a test:** the first version of the behavior 3 test used `except Exception`, and Ruff reported `BLE001 Do not catch blind exception`. It now catches `requests.RequestException`, the kind of crash this test guards against. The test still showed RED for the same reason afterwards.
+
+### Decisions
+- Book lines show the status **code** (for example `want_to_read`), because that is what the user types at the status prompt.
+- Bad input gets a message that says what's wrong:
+  - **Blank ID:** "Please enter a book ID."
+  - **Non-numeric ID:** `"abc" is not a valid book ID. Enter a number, like 12.`
+  - **Blank status:** "Please enter a status. Choose one of: ..."
+  - **Unknown status:** `"abandoned" is not a valid status. Choose one of: want_to_read, reading, finished`
+- Server errors use "500 or higher" (`status >= 500`), not just 500, so a 502 or 503 from a proxy gets the same friendly message. It's the same single check.
+- The script stops at the first bad answer: an invalid ID ends the run before the status question. The status check compares exact codes, as the plan asks ("one of the three codes").
+- For a book that isn't on the displayed page, the script says the old status is "not available" instead of making an extra `GET` to look it up. That keeps the script to one list request and one `PATCH`, and never guesses.
+- `READING_LIST_API_URL` set to only spaces counts as not set (default URL), the same way a blank `READING_LIST_TOKEN` counts as missing.
+- **Remaining known limitation (wording only, no traceback):** a malformed `READING_LIST_API_URL` (for example `localhost:9000`, with no `http://`) makes `requests` raise `InvalidSchema`, `MissingSchema`, or `InvalidURL`. These were checked in the terminal. All three are `ValueError`s, so the existing `except ValueError` catches them and the script prints the invalid-response message instead of a traceback. That message ("not JSON") isn't precise for a bad URL, but it does show the URL that was used. All the error cases listed in the plan and the PRD are handled.
+- **Correction in this step:** my first version of this note said a malformed URL would still show a traceback. A terminal check proved that wrong (all three URL errors are `ValueError`s), and the note was corrected before reporting.
+
+### Phase 10 Checkpoint
+- Phase 10 complete: all automated checks pass (198 tests), the live update was verified by the student, and the student approved the checkpoint.
+- The plan's other manual error checks (a wrong token, the server stopped, ID `abc`, an ID that isn't reader4's, status `done`, a user with no books) were not run live. They are covered by the mocked automated tests.
+- Committed and pushed with the student's message `feat: add API reading list update script` (the plan suggested `feat: add API script to list books and update reading status`).
+
+### Next Steps
+- Phase 11: documentation and final check.
